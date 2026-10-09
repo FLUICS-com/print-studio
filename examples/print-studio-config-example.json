@@ -1,0 +1,421 @@
+{
+  "appVersion": "1.0",
+  "exportedAt": "2026-09-25T10:38:57.414Z",
+  "settings": {
+    "apiKey": "",
+    "baseUrl": "https://print-api.fluics.com/latest",
+    "labelaryEnabled": true,
+    "dateFormat": "DDMonYY",
+    "unit": "mm"
+  },
+  "templates": [
+    {
+      "id": "6a5a4362-bc7d-4c34-add5-d4210f3c007b",
+      "name": "Type 1 Labels (text only)",
+      "zpl": "^FX T1 25.4 x 12.7 mm cryo ^FS\n^MTT^MUD,300,300\n^PR2\n^MD30\n^PW300\n^LH20,20\n^CF0,25\n^FO0,0^TB,650,450^FDuser: ${USER}^FS\n^FO0,22^TB,650,450^FDdate: ${DATE}^FS\n^FO0,44^TB,650,450^FDname: ${NAME}^FS\n^FO0,66^TB,650,450^FDbatch: ${BATCH_ID}^FS\n^FO0,88^TB,650,450^FDtype: ${TYPE}^FS\n^FO0,110^TB,650,450^FDsample: ${SAMPLE_COUNT}^FS\n^PQ1",
+      "labelWidth": 1,
+      "labelHeight": 0.5,
+      "labelDpmm": 12
+    },
+    {
+      "id": "560bcf92-1d23-423f-99b1-699e3f50c297",
+      "name": "Type 1 Labels (qr code)",
+      "zpl": "^FX T1 25.4 x 12.7 mm cryo ^FS\n^MTT^MUD,300,300\n^PR2\n^MD30\n^PW300\n^LH20,20\n^CF0,25\n^FO95,15^FD${NAME}^FS\n^FO95,80^FD${DATE}^FS\n^FO0,5^BQN,2,4^FD${NAME}^FS",
+      "labelWidth": 1,
+      "labelHeight": 0.5,
+      "labelDpmm": 12
+    },
+    {
+      "id": "bef76de0-371d-42e5-a9fc-7d56c7d6e220",
+      "name": "Type 4 Labels (qr code)",
+      "zpl": "^FX T4 50.8 x 25.4 mm chemical resistant ^FS\n^MTT^MUD,300,300\n^PR2\n^MD30\n^PW600\n^LH25,25\n^CF0,40\n^FO120,0^TB,470,450^FD${name}^FS\n^FO0,50^BQN,2,5^FDLA,${barcode}^FS\n^FO0,200^FD${barcode}^FS",
+      "labelWidth": 2,
+      "labelHeight": 1,
+      "labelDpmm": 12
+    },
+    {
+      "id": "5043b598-542a-420b-b54a-b54c5cf5b3eb",
+      "name": "Type 12 Labels (circle+rectangle)",
+      "zpl": "^FX T12 24 x 12.7 + Ø 11.0 mm cryo ^FS\n^MTT^MUD,300,300\n^PR2\n^MD30\n^PW420\n^LH20,20\n^CF0,25\n^FO220,0^TB,650,450^FD${name}^FS\n^FO128,13^BQN,2,4^FDLA,${barcode}^FS\n^CF0,26\n^FO5,30^TB,80,510^FD${name}^FS",
+      "labelWidth": 1.402,
+      "labelHeight": 0.5,
+      "labelDpmm": 12
+    }
+  ],
+  "lastUsed": {
+    "template": "6a5a4362-bc7d-4c34-add5-d4210f3c007b",
+    "mode": "batch",
+    "paste": null,
+    "single": {
+      "fields": [
+        {
+          "token": "USER",
+          "kind": "static",
+          "value": "Jane Doe",
+          "date": "",
+          "start": 1,
+          "digits": 1,
+          "prefix": ""
+        },
+        {
+          "token": "BATCH_ID",
+          "kind": "static",
+          "value": "1234abcd",
+          "date": "",
+          "start": 1,
+          "digits": 1,
+          "prefix": ""
+        },
+        {
+          "token": "TYPE",
+          "kind": "static",
+          "value": "Solid",
+          "date": "",
+          "start": 1,
+          "digits": 1,
+          "prefix": ""
+        },
+        {
+          "token": "SAMPLE_COUNT",
+          "kind": "static",
+          "value": "5",
+          "date": "",
+          "start": 1,
+          "digits": 1,
+          "prefix": ""
+        },
+        {
+          "token": "NAME",
+          "kind": "static",
+          "value": "Sample Name",
+          "date": "",
+          "start": 1,
+          "digits": 1,
+          "prefix": ""
+        },
+        {
+          "token": "name",
+          "kind": "static",
+          "value": "Sample name",
+          "date": "",
+          "start": 1,
+          "digits": 1,
+          "prefix": ""
+        },
+        {
+          "token": "barcode",
+          "kind": "static",
+          "value": "Sample",
+          "date": "",
+          "start": 1,
+          "digits": 1,
+          "prefix": ""
+        }
+      ]
+    },
+    "batch": {
+      "copies": 20,
+      "fields": [
+        {
+          "token": "USER",
+          "kind": "static",
+          "value": "Jane Doe",
+          "date": "",
+          "start": 1,
+          "digits": 1,
+          "prefix": ""
+        },
+        {
+          "token": "DATE",
+          "kind": "date",
+          "date": "2026-09-14",
+          "value": "",
+          "start": 1,
+          "digits": 1,
+          "prefix": "",
+          "today": false
+        },
+        {
+          "token": "SAMPLE_COUNT",
+          "kind": "counter",
+          "value": "",
+          "date": "",
+          "start": "4",
+          "digits": "3",
+          "prefix": ""
+        },
+        {
+          "token": "TYPE",
+          "kind": "static",
+          "value": "blood",
+          "date": "",
+          "start": 1,
+          "digits": 1,
+          "prefix": ""
+        },
+        {
+          "token": "BATCH_ID",
+          "kind": "static",
+          "value": "1234abcd",
+          "date": "",
+          "start": 1,
+          "digits": 1,
+          "prefix": ""
+        },
+        {
+          "token": "name",
+          "kind": "static",
+          "value": "This is a longer text which extends over several lines",
+          "date": "2026-09-11",
+          "start": "401",
+          "digits": "3",
+          "prefix": "ST-"
+        },
+        {
+          "token": "NAME",
+          "kind": "static",
+          "value": "Product",
+          "date": "",
+          "start": 1,
+          "digits": 1,
+          "prefix": ""
+        },
+        {
+          "token": "barcode",
+          "kind": "counter",
+          "value": "e",
+          "date": "",
+          "start": 1,
+          "digits": "2",
+          "prefix": "ID #"
+        }
+      ]
+    },
+    "bundle": {
+      "bundleId": "799dc0f7-2ce3-4161-b01c-94f6e0014adb"
+    },
+    "byMode": {
+      "single": {
+        "template": "bef76de0-371d-42e5-a9fc-7d56c7d6e220"
+      },
+      "paste": {
+        "template": "6a5a4362-bc7d-4c34-add5-d4210f3c007b"
+      },
+      "batch": {
+        "template": "6a5a4362-bc7d-4c34-add5-d4210f3c007b"
+      },
+      "bundle": {
+        "template": "6a5a4362-bc7d-4c34-add5-d4210f3c007b"
+      }
+    }
+  },
+  "printerNames": {},
+  "bundles": [
+    {
+      "id": "aec9196d-3118-4aca-bd89-cbef7aae85b5",
+      "name": "Patient visit",
+      "items": [
+        {
+          "id": "90e9091c-88ad-4cf2-9c6c-6b0100604b5d",
+          "count": 3,
+          "value": "Serum",
+          "token": "TYPE"
+        },
+        {
+          "id": "c4e902cf-0c05-4baf-b542-443722d1a845",
+          "count": 2,
+          "value": "Plasma",
+          "token": "TYPE"
+        },
+        {
+          "id": "c0d62b04-36bf-4dc8-ac7f-7e45e30f265b",
+          "token": "TYPE",
+          "value": "Saliva",
+          "count": 1
+        }
+      ],
+      "counter": {
+        "token": "SAMPLE_COUNT",
+        "start": 1,
+        "digits": "2",
+        "prefix": "#"
+      },
+      "shared": {
+        "fields": [
+          {
+            "token": "USER",
+            "kind": "static",
+            "value": "JD",
+            "date": "",
+            "start": 1,
+            "digits": 1,
+            "prefix": ""
+          },
+          {
+            "token": "TYPE",
+            "kind": "static",
+            "value": "Visit #1",
+            "date": "",
+            "start": 1,
+            "digits": 1,
+            "prefix": ""
+          },
+          {
+            "token": "DATE",
+            "kind": "date",
+            "date": "2026-09-12",
+            "value": "",
+            "start": 1,
+            "digits": 1,
+            "prefix": "",
+            "today": false
+          },
+          {
+            "token": "SAMPLE_COUNT",
+            "kind": "counter",
+            "value": "",
+            "date": "",
+            "start": 1,
+            "digits": "2",
+            "prefix": "#"
+          },
+          {
+            "token": "NAME",
+            "kind": "static",
+            "value": "Patient A",
+            "date": "",
+            "start": 1,
+            "digits": 1,
+            "prefix": ""
+          },
+          {
+            "token": "BATCH_ID",
+            "kind": "static",
+            "value": "001",
+            "date": "",
+            "start": 1,
+            "digits": 1,
+            "prefix": ""
+          }
+        ],
+        "seededFor": "6a5a4362-bc7d-4c34-add5-d4210f3c007b",
+        "seededFrom": "v05"
+      },
+      "templateId": ""
+    },
+    {
+      "id": "799dc0f7-2ce3-4161-b01c-94f6e0014adb",
+      "name": "Sample Preparation",
+      "items": [
+        {
+          "id": "74f21cba-4ed6-4abe-a797-5385ae61c95d",
+          "count": 3,
+          "value": "Serum",
+          "token": "TYPE"
+        },
+        {
+          "id": "a5aecfe5-fc0d-4e4c-9c81-c94723e2fa2e",
+          "token": "TYPE",
+          "value": "Plasma",
+          "count": 2
+        }
+      ],
+      "counter": {
+        "token": "SAMPLE_COUNT",
+        "start": 1,
+        "digits": 1,
+        "prefix": ""
+      },
+      "shared": {
+        "fields": [
+          {
+            "token": "USER",
+            "kind": "static",
+            "value": "JD",
+            "date": "",
+            "start": 1,
+            "digits": 1,
+            "prefix": ""
+          },
+          {
+            "token": "TYPE",
+            "kind": "static",
+            "value": "Visit #1",
+            "date": "",
+            "start": 1,
+            "digits": 1,
+            "prefix": ""
+          },
+          {
+            "token": "DATE",
+            "kind": "date",
+            "date": "2026-09-12",
+            "value": "",
+            "start": 1,
+            "digits": 1,
+            "prefix": "",
+            "today": false
+          },
+          {
+            "token": "SAMPLE_COUNT",
+            "kind": "counter",
+            "value": "",
+            "date": "",
+            "start": 1,
+            "digits": "2",
+            "prefix": "#"
+          },
+          {
+            "token": "NAME",
+            "kind": "static",
+            "value": "Analysis",
+            "date": "",
+            "start": 1,
+            "digits": 1,
+            "prefix": ""
+          },
+          {
+            "token": "BATCH_ID",
+            "kind": "static",
+            "value": "001",
+            "date": "",
+            "start": 1,
+            "digits": 1,
+            "prefix": ""
+          }
+        ],
+        "seededFor": "6a5a4362-bc7d-4c34-add5-d4210f3c007b",
+        "seededFrom": "v05"
+      },
+      "templateId": "6a5a4362-bc7d-4c34-add5-d4210f3c007b"
+    }
+  ],
+  "variables": [
+    {
+      "key": "user",
+      "label": "User"
+    },
+    {
+      "key": "date",
+      "label": "Date"
+    },
+    {
+      "key": "var1",
+      "label": "Product Name"
+    },
+    {
+      "key": "var2",
+      "label": "Batch ID"
+    },
+    {
+      "key": "var3",
+      "label": "Type"
+    },
+    {
+      "key": "counter",
+      "label": "Sample Count"
+    }
+  ],
+  "notes": "",
+  "auditLog": []
+}
