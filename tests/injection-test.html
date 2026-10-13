@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRINT Studio injection test</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 16px; background: #fff; color: #222; }
+  .pass { color: #0a7d32; } .fail { color: #b00020; font-weight: 600; }
+  iframe { width: 100%; height: 420px; border: 1px solid #ccc; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h1>PRINT Studio injection regression test</h1>
+<p>Serve the repository root over HTTP (for example <code>python3 -m http.server 8770</code>) and open
+<code>/tests/injection-test.html</code>. Use a port where no real configuration is stored: the test
+overwrites this origin's <code>lr_state</code>.</p>
+<ol id="out"></ol>
+<p id="summary">Running…</p>
+<iframe id="app" title="App under test"></iframe>
+<script>
+// Payloads: P closes a JS string inside an inline handler (the old onclick="fn('${id}')"
+// pattern), H breaks out of an HTML attribute. Both report through top.__hit().
+const P = n => `x');top.__hit('${n}');//`;
+const H = n => `"><img src=x onerror="top.__hit('${n}')">`;
+const hits = new Set();
+window.__hit = n => hits.add(n);
+const results = [];
+function check(name, ok, detail = '') {
+  results.push(ok);
+  const li = document.createElement('li');
+  li.className = ok ? 'pass' : 'fail';
+  li.textContent = `${ok ? 'PASS' : 'FAIL'}: ${name}${detail ? ' (' + detail + ')' : ''}`;
+  document.getElementById('out').appendChild(li);
+}
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function loadApp() {
+  return new Promise(res => {
+    const f = document.getElementById('app');
+    f.onload = () => res(f.contentWindow);
+    f.src = '../index.html?t=' + Date.now();
+  });
+}
+// Fire every generated handler of one kind, except the given function names.
+async function fire(w, type, skip = []) {
+  // Delegated handlers of the fixed code, plus any inline handler that carries a
+  // payload (how the injection showed up before the fix).
+  for (const el of [...w.document.querySelectorAll(`[data-on${type}], [on${type}*="__hit"]`)]) {
+    if (skip.includes(el.getAttribute(`data-on${type}`)) || !el.isConnected) continue;
+    if (type === 'click') el.click();
+    else el.dispatchEvent(new w.Event(type, { bubbles: true }));
+    await wait(10);
+  }
+}
+
+(async () => {
+  localStorage.removeItem('lr_state');
+  let w = await loadApp();
+
+  // Plant payloads where a config import or stored state can put them.
+  const S = w.eval('S');   // top-level let, not a window property
+  S.templates.unshift({ ...S.templates[0], id: P('template-id'), name: H('template-name') });
+  if (S.bundles && S.bundles[0]) {
+    S.bundles[0].name = H('bundle-name');
+    if (S.bundles[0].items && S.bundles[0].items[0]) S.bundles[0].items[0].id = P('bundle-item-id');
+  }
+  S.printerNames = { [P('printer-lid')]: H('printer-name') };
+  w.save();
+  w = await loadApp();
+  await wait(300);
+
+  // Exercise the generated handlers in every mode and in the template settings.
+  for (const mode of ['single', 'batch', 'bundle', 'paste']) {
+    w.setPrintMode(mode); await wait(150);
+    await fire(w, 'input'); await fire(w, 'change');
+    await fire(w, 'click', ['openScanner', 'openDatePicker', 'deletePasteRow', 'deletePasteColumn', 'removeFieldRow', 'removeBundleItem']);
+  }
+  w.openSettings('templates'); await wait(300);
+  const before = w.eval('S').templates.map(t => t.id).join(',');
+  await fire(w, 'click', ['openEditTemplate', 'deleteTemplate']);
+  await wait(300);
+  check('no injected code ran', hits.size === 0, hits.size ? 'payloads that ran: ' + [...hits].join(', ') : '');
+  check('template move buttons still work through delegation', w.eval('S').templates.map(t => t.id).join(',') !== before);
+  check('payload id survives as data', w.eval('S').templates.some(t => t.id === P('template-id')));
+
+  // Config import validation.
+  check('import rejects an injected template id', w.findBadConfigId({ templates: [{ id: P('x') }] }) !== '');
+  check('import rejects an injected bundle item id', w.findBadConfigId({ templates: [], bundles: [{ id: 'b1', items: [{ id: P('x') }] }] }) !== '');
+  const example = await (await fetch('../examples/print-studio-config-example.json')).json();
+  check('the example config passes the id check', w.findBadConfigId(example) === '');
+
+  localStorage.removeItem('lr_state');
+  const failed = results.filter(r => !r).length;
+  document.getElementById('summary').innerHTML = failed
+    ? `<strong class="fail">${failed} of ${results.length} checks failed</strong>`
+    : `<strong class="pass">All ${results.length} checks passed</strong>`;
+  document.title = failed ? 'FAIL' : 'PASS';
+})().catch(e => { check('test ran without errors', false, e.message); document.title = 'FAIL'; });
+</script>
+</body>
+</html>

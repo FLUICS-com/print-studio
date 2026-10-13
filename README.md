@@ -19,7 +19,7 @@ Everything you configure (API key, templates, bundles, audit log) is stored only
 
 ## Third-party services and libraries
 
-Loaded at runtime from CDNs under their own licenses: Tailwind CSS (MIT), ZXing (Apache-2.0), SheetJS (Apache-2.0). The optional label preview uses the Labelary online service (labelary.com); label content is sent there only while the preview is switched on.
+Loaded at runtime from CDNs under their own licenses: Tailwind CSS (MIT), ZXing (Apache-2.0), SheetJS 0.20.3 (Apache-2.0, from cdn.sheetjs.com, pinned with an integrity hash). The optional label preview uses the Labelary online service (labelary.com); label content is sent there only while the preview is switched on.
 
 ## Building the manual PDF
 

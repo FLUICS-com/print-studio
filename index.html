@@ -14,8 +14,9 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg id='Ebene_1' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 31.65 31.65'%3E%3Crect width='31.65' height='31.65' rx='4.67' fill='%23ffe000'/%3E%3Crect x='17.36' y='20.8' width='1.02' height='1.02' fill='%23363332'/%3E%3Crect x='18.38' y='21.82' width='1.02' height='1.02' fill='%23363332'/%3E%3Crect x='16.34' y='21.83' width='1.02' height='1.02' fill='%23363332'/%3E%3Crect x='18.38' y='19.78' width='1.02' height='1.02' fill='%23363332'/%3E%3Crect x='16.34' y='19.78' width='1.02' height='1.02' fill='%23363332'/%3E%3Cpath d='M15.31,15.7H12.25v3.06h3.06Zm-1,2h-1v-1h1Z' fill='%23363332'/%3E%3Cpath d='M19.4,15.7H16.34v3.06H19.4Zm-1,2h-1v-1h1Z' fill='%23363332'/%3E%3Cpath d='M15.31,19.78H12.25v3.07h3.06Zm-1,2h-1v-1h1Z' fill='%23363332'/%3E%3Cpath d='M22.78,10.19H8.87a2.26,2.26,0,0,0-2.26,2.26V17h3v8.37H22V17h3V12.45A2.26,2.26,0,0,0,22.78,10.19ZM20.52,23.84H11.13V14.71h9.39ZM22.78,13.2a.75.75,0,0,1,0-1.5.75.75,0,0,1,0,1.5ZM20.52,6.31l-9.39.12v3l9.39-.12Z' fill='%23363332'/%3E%3C/svg%3E">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
-  <!-- SheetJS: reads .xlsx / .xls files for Paste to Print. CSV and clipboard paste work without it. -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- SheetJS: reads .xlsx / .xls files for Paste to Print. CSV and clipboard paste work without it.
+       0.20.3 fixes CVE-2023-30533 and CVE-2024-22363; newer releases are only on cdn.sheetjs.com, the hash pins the file. -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
   <style>
     .zpl-editor { font-family: 'Courier New', monospace; font-size: 12px; }
     .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
@@ -2055,6 +2056,30 @@ function exportState() {
  * all migrations are applied before the UI refreshes.
  * @param {File} file - JSON file selected by the user.
  */
+/**
+ * Ids in an imported config end up in markup and selectors. Config files can come
+ * from anyone, so only plain ids (uuid() output, older generated ids, printer
+ * LIDs) are accepted. Returns the first bad id, or '' when all are fine.
+ */
+const CONFIG_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+function findBadConfigId(c) {
+  const ids = [];
+  (c.templates || []).forEach(t => ids.push(t && t.id));
+  if (Array.isArray(c.bundles)) c.bundles.forEach(b => {
+    ids.push(b && b.id);
+    if (b && b.templateId) ids.push(b.templateId);
+    if (b && Array.isArray(b.items)) b.items.forEach(it => ids.push(it && it.id));
+  });
+  if (Array.isArray(c.groups)) c.groups.forEach(g => ids.push(g && g.id));   // v04/v05 configs
+  if (c.printerNames && typeof c.printerNames === 'object') ids.push(...Object.keys(c.printerNames));
+  const lu = c.lastUsed && typeof c.lastUsed === 'object' ? c.lastUsed : {};
+  [lu.template, lu.printer, lu.bundle && lu.bundle.bundleId].forEach(v => { if (v) ids.push(v); });
+  Object.values(lu.byMode && typeof lu.byMode === 'object' ? lu.byMode : {})
+    .forEach(m => { if (m && m.template) ids.push(m.template); if (m && m.printer) ids.push(m.printer); });
+  const bad = ids.find(id => typeof id !== 'string' || !CONFIG_ID_RE.test(id));
+  return bad === undefined ? '' : String(bad);
+}
+
 function importState(file) {
   if (!file) return;
   const reader = new FileReader();
@@ -2063,6 +2088,11 @@ function importState(file) {
     try { imported = JSON.parse(e.target.result); } catch { imported = null; }
     if (!imported || typeof imported !== 'object' || !Array.isArray(imported.templates)) {
       alert('This file is not a FLUICS PRINT Studio configuration. Nothing was changed.');
+      return;
+    }
+    const badId = findBadConfigId(imported);
+    if (badId) {
+      alert(`This configuration contains an invalid id ("${badId.slice(0, 40)}"). Nothing was changed.`);
       return;
     }
     if (!confirm(`Import "${file.name}"? It replaces the templates, bundles, settings and audit log stored in this browser.`)) return;
@@ -2288,7 +2318,7 @@ function counterSample(f, n) { return `${f.prefix || ''}${String((parseInt(f.sta
  */
 function fieldRowHtml(ns, f, i, selectable) {
   const v = varByToken(f.token);
-  const kindSel = `<select class="field-input text-sm w-32 shrink-0" style="padding:0.5rem 0.6rem;height:2.6rem" onchange="setFieldRow('${ns}', ${i}, 'kind', this.value)">
+  const kindSel = `<select class="field-input text-sm w-32 shrink-0" style="padding:0.5rem 0.6rem;height:2.6rem" ${uiOn('change', 'setFieldRow', ns, i, 'kind', {$:'value'})}>
       <option value="static" ${f.kind === 'static' ? 'selected' : ''}>Text</option>
       <option value="date" ${f.kind === 'date' ? 'selected' : ''}>Date</option>
       ${ns === 'batch' ? `<option value="counter" ${f.kind === 'counter' ? 'selected' : ''}>Counter</option>` : ''}
@@ -2301,13 +2331,13 @@ function fieldRowHtml(ns, f, i, selectable) {
     const pickerId = `${ns}-date-${i}`;
     valueCtl = `<div class="flex flex-col sm:flex-row sm:items-center gap-2 flex-1 min-w-0">
         <div class="relative w-full sm:w-44">
-          <input type="text" readonly id="${pickerId}-text" class="field-input w-full ${f.today ? 'bg-gray-50 text-gray-500' : 'cursor-pointer'}" style="padding-right:2.25rem" value="${esc(formatDate(iso, dateFmt()))}" placeholder="Pick a date" title="${f.today ? 'Follows today\'s date' : 'Click to pick a date'}" onclick="openDatePicker('${pickerId}')">
-          <button type="button" onclick="openDatePicker('${pickerId}')" title="Pick a date" ${f.today ? 'disabled' : ''} class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-500 disabled:opacity-40 transition-colors">${calendarIcon()}</button>
-          <input type="date" id="${pickerId}" value="${esc(iso)}" ${f.today ? 'disabled' : ''} style="position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none" tabindex="-1" onchange="setFieldRow('${ns}', ${i}, 'date', this.value)">
+          <input type="text" readonly id="${pickerId}-text" class="field-input w-full ${f.today ? 'bg-gray-50 text-gray-500' : 'cursor-pointer'}" style="padding-right:2.25rem" value="${esc(formatDate(iso, dateFmt()))}" placeholder="Pick a date" title="${f.today ? 'Follows today\'s date' : 'Click to pick a date'}" ${uiOn('click', 'openDatePicker', pickerId)}>
+          <button type="button" ${uiOn('click', 'openDatePicker', pickerId)} title="Pick a date" ${f.today ? 'disabled' : ''} class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-500 disabled:opacity-40 transition-colors">${calendarIcon()}</button>
+          <input type="date" id="${pickerId}" value="${esc(iso)}" ${f.today ? 'disabled' : ''} style="position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none" tabindex="-1" ${uiOn('change', 'setFieldRow', ns, i, 'date', {$:'value'})}>
         </div>
         <div class="flex items-center gap-3">
           <label class="inline-flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none whitespace-nowrap">
-            <input type="checkbox" class="align-middle m-0" ${f.today ? 'checked' : ''} onchange="setFieldRow('${ns}', ${i}, 'today', this.checked)"> <span>Today</span>
+            <input type="checkbox" class="align-middle m-0" ${f.today ? 'checked' : ''} ${uiOn('change', 'setFieldRow', ns, i, 'today', {$:'checked'})}> <span>Today</span>
           </label>
           <button type="button" onclick="openSettings('general')" class="text-xs text-blue-600 underline whitespace-nowrap">change date format</button>
         </div>
@@ -2315,7 +2345,7 @@ function fieldRowHtml(ns, f, i, selectable) {
   } else if (f.kind === 'counter') {
     // Start / Digits / Prefix side by side (also on phones), example below.
     // Each box carries its caption inside, so the boxes line up with the kind dropdown.
-    const ci = (field, val, extra = '') => `<label class="counter-box"><span>${field}</span><input ${extra} value="${esc(val)}" oninput="setFieldRow('${ns}', ${i}, '${field.toLowerCase()}', this.value)"></label>`;
+    const ci = (field, val, extra = '') => `<label class="counter-box"><span>${field}</span><input ${extra} value="${esc(val)}" ${uiOn('input', 'setFieldRow', ns, i, field.toLowerCase(), {$:'value'})}></label>`;
     valueCtl = `<div class="basis-full sm:basis-auto flex-1 min-w-0">
         <div class="grid grid-cols-3 gap-2 sm:max-w-sm">
           ${ci('Start', f.start ?? 1, 'type="number"')}
@@ -2326,12 +2356,12 @@ function fieldRowHtml(ns, f, i, selectable) {
       </div>`;
   } else {
     valueCtl = `<div class="relative flex-1">
-        <input id="${ns}-val-${i}" type="text" class="field-input w-full" style="padding-right:2.25rem" value="${esc(f.value || '')}" placeholder="${esc(v?.label || 'Value')}" autocomplete="off" autocapitalize="off" spellcheck="false" oninput="setFieldRow('${ns}', ${i}, 'value', this.value)">
-        <button type="button" onclick="openScanner('${ns}-val-${i}')" title="Scan barcode or QR code" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-500 transition-colors">${scannerCameraIcon()}</button>
+        <input id="${ns}-val-${i}" type="text" class="field-input w-full" style="padding-right:2.25rem" value="${esc(f.value || '')}" placeholder="${esc(v?.label || 'Value')}" autocomplete="off" autocapitalize="off" spellcheck="false" ${uiOn('input', 'setFieldRow', ns, i, 'value', {$:'value'})}>
+        <button type="button" ${uiOn('click', 'openScanner', `${ns}-val-${i}`)} title="Scan barcode or QR code" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-500 transition-colors">${scannerCameraIcon()}</button>
       </div>`;
   }
   const left = selectable
-    ? `<select class="field-input text-sm font-mono w-full sm:w-52 shrink-0" style="padding:0.4rem 0.5rem" onchange="setFieldRow('${ns}', ${i}, 'token', this.value)">${placeholderOptions(f.token)}</select>`
+    ? `<select class="field-input text-sm font-mono w-full sm:w-52 shrink-0" style="padding:0.4rem 0.5rem" ${uiOn('change', 'setFieldRow', ns, i, 'token', {$:'value'})}>${placeholderOptions(f.token)}</select>`
     : `<code class="field-token text-sm font-mono text-gray-700 w-full sm:w-52 shrink-0 truncate" title="\${${esc(f.token)}}">\${${esc(f.token)}}</code>`;
   // Phones: placeholder on its own line, then kind and value side by side.
   // All sizes: aligned at the top, because date and counter rows have a second
@@ -2340,7 +2370,7 @@ function fieldRowHtml(ns, f, i, selectable) {
       ${left}
       ${kindSel}
       ${valueCtl}
-      ${selectable ? `<button type="button" onclick="removeFieldRow('${ns}', ${i})" title="Remove row" class="w-8 h-10 shrink-0 text-gray-300 hover:text-red-500 text-lg leading-none">×</button>` : ''}
+      ${selectable ? `<button type="button" ${uiOn('click', 'removeFieldRow', ns, i)} title="Remove row" class="w-8 h-10 shrink-0 text-gray-300 hover:text-red-500 text-lg leading-none">×</button>` : ''}
     </div>`;
 }
 
@@ -2535,13 +2565,13 @@ function renderBundleItems() {
   // Phones: placeholder + remove on line 1, "= value × count" on line 2, the
   // number range below. Wider screens: one line with remove at the end.
   el.innerHTML = b.items.map(it => `<div class="field-row flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-1.5">
-      <select class="field-input text-sm font-mono flex-1 sm:flex-none sm:w-52 min-w-0" style="padding:0.4rem 0.5rem" onchange="setBundleItem('${esc(it.id)}', 'token', this.value)">${placeholderOptions(it.token)}</select>
-      <button type="button" onclick="removeBundleItem('${esc(it.id)}')" title="Remove" class="sm:order-last w-8 h-10 shrink-0 text-gray-300 hover:text-red-500 text-lg leading-none">×</button>
+      <select class="field-input text-sm font-mono flex-1 sm:flex-none sm:w-52 min-w-0" style="padding:0.4rem 0.5rem" ${uiOn('change', 'setBundleItem', it.id, 'token', {$:'value'})}>${placeholderOptions(it.token)}</select>
+      <button type="button" ${uiOn('click', 'removeBundleItem', it.id)} title="Remove" class="sm:order-last w-8 h-10 shrink-0 text-gray-300 hover:text-red-500 text-lg leading-none">×</button>
       <div class="flex items-center gap-2 w-full sm:w-auto sm:flex-1 min-w-0">
         <span class="text-gray-400 text-sm">=</span>
-        <input type="text" class="field-input flex-1 min-w-0 text-sm" value="${esc(it.value)}" placeholder="Label type, e.g. Serum" autocomplete="off" spellcheck="false" oninput="setBundleItem('${esc(it.id)}', 'value', this.value)">
+        <input type="text" class="field-input flex-1 min-w-0 text-sm" value="${esc(it.value)}" placeholder="Label type, e.g. Serum" autocomplete="off" spellcheck="false" ${uiOn('input', 'setBundleItem', it.id, 'value', {$:'value'})}>
         <span class="text-gray-400 text-sm">×</span>
-        <input type="number" min="0" max="9999" class="field-input w-16 sm:w-20 text-sm text-center shrink-0" value="${esc(it.count)}" oninput="setBundleItem('${esc(it.id)}', 'count', this.value)">
+        <input type="number" min="0" max="9999" class="field-input w-16 sm:w-20 text-sm text-center shrink-0" value="${esc(it.count)}" ${uiOn('input', 'setBundleItem', it.id, 'count', {$:'value'})}>
       </div>
       <span class="text-xs text-gray-400 whitespace-nowrap sm:w-28 pl-4 sm:pl-0 bundle-item-range" data-id="${esc(it.id)}">${esc(bundleItemRange(it))}</span>
     </div>`).join('') || '<p class="text-xs text-gray-400 italic">No label types yet. Click + Label type.</p>';
@@ -2613,7 +2643,7 @@ function updateBundleSummary() {
   if (!b) { if (sum) sum.textContent = ''; return; }
   const total = bundleTotal(b);
   if (sum) sum.innerHTML = `${b.items.map(it => `${esc(it.value || '?')} × ${parseInt(it.count) || 0}`).join(', ')}${b.items.length ? ' → ' : ''}<strong>${total} label${total !== 1 ? 's' : ''}</strong>`;
-  const opt = document.querySelector(`#bundle-select option[value="${b.id}"]`);
+  const opt = document.querySelector(`#bundle-select option[value="${CSS.escape(b.id)}"]`);
   if (opt) opt.textContent = bundleOptionText(b);
 }
 
@@ -3297,7 +3327,7 @@ function renderPrinters() {
       </div>
       <input type="text" value="${esc(custom)}" placeholder="${esc(p.serviceName)}"
              data-lid="${esc(p.LID)}"
-             oninput="setPrinterName('${esc(p.LID)}', this.value)"
+             ${uiOn('input', 'setPrinterName', p.LID, {$:'value'})}
              class="field-input w-48 text-sm">
     </div>`;
   }).join('');
@@ -3314,7 +3344,7 @@ function setPrinterName(lid, value) {
   S.printerNames[lid] = value.trim();
   save();
   // Update the displayed name in the Configure list without re-rendering the whole list.
-  const inp = document.querySelector(`#printers-list input[data-lid="${lid}"]`);
+  const inp = document.querySelector(`#printers-list input[data-lid="${CSS.escape(lid)}"]`);
   const nameEl = inp?.closest('.list-row')?.querySelector('.text-sm.font-medium');
   const p = printers.find(x => x.LID === lid);
   if (nameEl && p) nameEl.textContent = value.trim() || p.serviceName;
@@ -3345,11 +3375,11 @@ function renderTemplates() {
         </div>
         <div class="flex items-center gap-3">
           <span class="flex items-center gap-1">
-            <button onclick="moveTemplate('${t.id}', -1)" title="Move up" ${i === 0 ? 'disabled' : ''} class="px-1 text-gray-400 hover:text-blue-600 disabled:opacity-30 leading-none">↑</button>
-            <button onclick="moveTemplate('${t.id}', 1)" title="Move down" ${i === S.templates.length - 1 ? 'disabled' : ''} class="px-1 text-gray-400 hover:text-blue-600 disabled:opacity-30 leading-none">↓</button>
+            <button ${uiOn('click', 'moveTemplate', t.id, -1)} title="Move up" ${i === 0 ? 'disabled' : ''} class="px-1 text-gray-400 hover:text-blue-600 disabled:opacity-30 leading-none">↑</button>
+            <button ${uiOn('click', 'moveTemplate', t.id, 1)} title="Move down" ${i === S.templates.length - 1 ? 'disabled' : ''} class="px-1 text-gray-400 hover:text-blue-600 disabled:opacity-30 leading-none">↓</button>
           </span>
-          <button onclick="openEditTemplate('${t.id}')" class="text-xs text-blue-600 hover:underline">Edit</button>
-          <button onclick="deleteTemplate('${t.id}')" class="text-xs text-red-500 hover:underline">Delete</button>
+          <button ${uiOn('click', 'openEditTemplate', t.id)} class="text-xs text-blue-600 hover:underline">Edit</button>
+          <button ${uiOn('click', 'deleteTemplate', t.id)} class="text-xs text-red-500 hover:underline">Delete</button>
         </div>
       </div>
       <div class="grid gap-3" style="${withPreview ? 'grid-template-columns:minmax(0,1fr) 220px' : ''}">
@@ -3498,7 +3528,7 @@ function updateTmplTokenHint() {
   const ROLE = { date: ['date picker', 'Opens as a date row with the date picker'], counter: ['counter', 'Opens as a counter row (1, 2, 3 …)'] };
   const role = tok => ROLE[varByToken(tok)?.key]?.[0] || '';
   const roleTip = tok => ROLE[varByToken(tok)?.key]?.[1] || '';
-  const chip = (tok, used) => `<button type="button" onclick="insertTmplToken('${esc(tok)}')" title="${used ? 'Used in this template. Click to insert again' : 'Click to insert into the ZPL'}${roleTip(tok) ? '. ' + roleTip(tok) : ''}"
+  const chip = (tok, used) => `<button type="button" ${uiOn('click', 'insertTmplToken', tok)} title="${used ? 'Used in this template. Click to insert again' : 'Click to insert into the ZPL'}${roleTip(tok) ? '. ' + roleTip(tok) : ''}"
       class="inline-flex items-center gap-1 mr-1.5 mb-1.5 px-1.5 py-0.5 rounded border ${used ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}">
       <code>\${${esc(tok)}}</code>${role(tok) ? `<span class="opacity-70">${esc(role(tok))}</span>` : ''}</button>`;
   el.innerHTML = `
@@ -3752,7 +3782,7 @@ function renderAuditLog() {
               <td class="px-3 py-1.5 text-center">${e.count}</td>
               ${statusCell}
               <td class="px-3 py-1.5">
-                ${zplText ? `<button type="button" onclick="toggleAuditZpl(${i})"
+                ${zplText ? `<button type="button" ${uiOn('click', 'toggleAuditZpl', i)}
                   style="font-size:0.7rem;padding:0.1rem 0.4rem;border:1px solid #d1d5db;border-radius:0.25rem;cursor:pointer;background:#f9fafb"
                   >▶ View</button>` : '<span style="color:#d1d5db">·</span>'}
               </td>
@@ -3825,8 +3855,53 @@ function clearAuditLog() {
  * @returns {string} HTML-safe string.
  */
 function esc(s) {
-  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+
+/**
+ * Event handlers for generated markup. Builders write ${uiOn('click', 'fn', a, b)}
+ * instead of an inline onclick with interpolated values, so data never becomes
+ * code: template, bundle and printer ids and placeholder names can come from an
+ * imported config file. The arguments travel as JSON in a data attribute;
+ * {$:'value'|'checked'|'event'} stands for the element's value, checked state or
+ * the event. Only functions listed in UI_HANDLERS can be called.
+ */
+function uiOn(type, fn, ...args) {
+  return `data-on${type}="${esc(fn)}" data-${type}-args="${esc(JSON.stringify(args))}"`;
+}
+const UI_HANDLERS = {
+  setFieldRow: (ns, i, key, v) => setFieldRow(ns, i, key, v),
+  removeFieldRow: (ns, i) => removeFieldRow(ns, i),
+  openDatePicker: id => openDatePicker(id),
+  openScanner: id => openScanner(id),
+  setBundleItem: (id, key, v) => setBundleItem(id, key, v),
+  removeBundleItem: id => removeBundleItem(id),
+  setPrinterName: (lid, v) => setPrinterName(lid, v),
+  moveTemplate: (id, dir) => moveTemplate(id, dir),
+  openEditTemplate: id => openEditTemplate(id),
+  deleteTemplate: id => deleteTemplate(id),
+  insertTmplToken: tok => insertTmplToken(tok),
+  toggleAuditZpl: i => toggleAuditZpl(i),
+  deletePasteColumn: ci => deletePasteColumn(ci),
+  setPasteMapping: (ci, v) => setPasteMapping(ci, v),
+  setPasteCell: (ri, ci, v) => setPasteCell(ri, ci, v),
+  pasteCellKey: (ev, ri, ci) => pasteCellKey(ev, ri, ci),
+  fillPasteDown: (ri, ci) => fillPasteDown(ri, ci),
+  deletePasteRow: ri => deletePasteRow(ri),
+  addPasteColumnFor: tok => addPasteColumnFor(tok),
+};
+['click', 'change', 'input', 'keydown'].forEach(type => document.addEventListener(type, ev => {
+  const el = ev.target instanceof Element && ev.target.closest(`[data-on${type}]`);
+  if (!el) return;
+  const name = el.getAttribute(`data-on${type}`);
+  const fn = Object.prototype.hasOwnProperty.call(UI_HANDLERS, name) && UI_HANDLERS[name];
+  if (typeof fn !== 'function') return;
+  let args;
+  try { args = JSON.parse(el.getAttribute(`data-${type}-args`) || '[]'); } catch { return; }
+  if (!Array.isArray(args)) return;
+  fn(...args.map(a => a && typeof a === 'object' && '$' in a
+    ? (a.$ === 'value' ? el.value : a.$ === 'checked' ? el.checked : a.$ === 'event' ? ev : undefined) : a));
+}));
 
 /** Return an em-dash placeholder for empty table cells. */
 function dash() { return '<span class="text-gray-300">·</span>'; }
@@ -4344,10 +4419,10 @@ function renderPasteGrid() {
           <div class="flex items-center justify-between gap-1 mb-1">
             <span class="text-[11px] text-gray-500 truncate" title="${esc(h)}">${esc(h)}</span>
             <span class="flex items-center gap-1 shrink-0">
-              <button type="button" onclick="deletePasteColumn(${ci})" title="Remove column" class="text-gray-300 hover:text-red-500 leading-none">×</button>
+              <button type="button" ${uiOn('click', 'deletePasteColumn', ci)} title="Remove column" class="text-gray-300 hover:text-red-500 leading-none">×</button>
             </span>
           </div>
-          <select class="map-select ${m ? 'mapped' : ''}" onchange="setPasteMapping(${ci}, this.value)" title="Which placeholder of the label template this column fills">${pasteMappingOptions(m)}</select>
+          <select class="map-select ${m ? 'mapped' : ''}" ${uiOn('change', 'setPasteMapping', ci, {$:'value'})} title="Which placeholder of the label template this column fills">${pasteMappingOptions(m)}</select>
         </th>`;
       }).join('')}
       <th style="width:2rem"></th>
@@ -4357,10 +4432,10 @@ function renderPasteGrid() {
       <td class="rownum">${ri + 1}</td>
       ${P.headers.map((_, ci) => `<td class="${P.mapping[ci] ? '' : 'ignored'}"><div class="cell-wrap">
         <input id="pcell-${ri}-${ci}" class="cell" type="text" autocomplete="off" spellcheck="false" value="${esc(row[ci] ?? '')}"
-               oninput="setPasteCell(${ri}, ${ci}, this.value)" onkeydown="pasteCellKey(event, ${ri}, ${ci})">
-        <button type="button" class="cell-fill" tabindex="-1" title="Copy this value into all rows below" onmousedown="event.preventDefault()" onclick="fillPasteDown(${ri}, ${ci})">⤓</button>
+               ${uiOn('input', 'setPasteCell', ri, ci, {$:'value'})} ${uiOn('keydown', 'pasteCellKey', {$:'event'}, ri, ci)}>
+        <button type="button" class="cell-fill" tabindex="-1" title="Copy this value into all rows below" onmousedown="event.preventDefault()" ${uiOn('click', 'fillPasteDown', ri, ci)}>⤓</button>
       </div></td>`).join('')}
-      <td style="text-align:center"><button type="button" onclick="deletePasteRow(${ri})" title="Remove row" class="text-gray-300 hover:text-red-500 px-1 leading-none">×</button></td>
+      <td style="text-align:center"><button type="button" ${uiOn('click', 'deletePasteRow', ri)} title="Remove row" class="text-gray-300 hover:text-red-500 px-1 leading-none">×</button></td>
     </tr>`).join('')}</tbody>`;
 
   table.innerHTML = head + body;
@@ -4383,7 +4458,7 @@ function renderPasteMappingSummary() {
   if (!tokens.length) { el.innerHTML = '<span class="text-amber-700">The selected template has no <code>${…}</code> placeholders, every label will look the same.</span>'; return; }
   const parts = [];
   const fromCol = (tok, ci) => `<span class="whitespace-nowrap"><strong class="text-blue-700 font-mono">\${${esc(tok)}}</strong> ← column "${esc(P.headers[ci])}"</span>`;
-  const missing = (tok, what) => `<span class="whitespace-nowrap"><strong class="text-gray-500 font-mono">\${${esc(tok)}}</strong> ← ${what} <button type="button" onclick="addPasteColumnFor('${esc(tok)}')" class="ml-0.5 px-1.5 py-0 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100" title="Add a column for this placeholder, filled with one value for all rows">+ add column</button></span>`;
+  const missing = (tok, what) => `<span class="whitespace-nowrap"><strong class="text-gray-500 font-mono">\${${esc(tok)}}</strong> ← ${what} <button type="button" ${uiOn('click', 'addPasteColumnFor', tok)} class="ml-0.5 px-1.5 py-0 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100" title="Add a column for this placeholder, filled with one value for all rows">+ add column</button></span>`;
   const copiesCi = P.mapping.indexOf(PASTE_COPIES_KEY);
   const counterTok = token('counter');
   tokens.forEach(tok => {
@@ -4394,7 +4469,7 @@ function renderPasteMappingSummary() {
   });
   parts.push(copiesCi >= 0
     ? `<span class="whitespace-nowrap"><strong class="text-blue-700">Copies</strong> ← column "${esc(P.headers[copiesCi])}"</span>`
-    : `<span class="whitespace-nowrap"><strong class="text-gray-500">Copies</strong> ← 1 label per row <button type="button" onclick="addPasteColumnFor('${PASTE_COPIES_KEY}')" class="ml-0.5 px-1.5 py-0 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100">+ add column</button></span>`);
+    : `<span class="whitespace-nowrap"><strong class="text-gray-500">Copies</strong> ← 1 label per row <button type="button" ${uiOn('click', 'addPasteColumnFor', PASTE_COPIES_KEY)} class="ml-0.5 px-1.5 py-0 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100">+ add column</button></span>`);
   const ignored = P.headers.filter((_, ci) => !P.mapping[ci]);
   const extra = P.mapping.filter(m => m && m !== PASTE_COPIES_KEY && !tokens.includes(m));
   el.innerHTML = parts.join(' <span class="text-gray-300 mx-1">·</span> ') +
