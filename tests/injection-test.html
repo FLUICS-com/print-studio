@@ -38,7 +38,7 @@ function loadApp() {
   return new Promise(res => {
     const f = document.getElementById('app');
     f.onload = () => res(f.contentWindow);
-    f.src = '../index.html?t=' + Date.now();
+    f.src = '../PRINTStudio.html?t=' + Date.now();
   });
 }
 // Fire every generated handler of one kind, except the given function names.

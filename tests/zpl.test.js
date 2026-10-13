@@ -1,9 +1,9 @@
 // Unit tests for the ZPL substitution and the copy limits: node tests/zpl.test.js
-// The functions are read straight from index.html, so the test always checks the app's code.
+// The functions are read straight from PRINTStudio.html, so the test always checks the app's code.
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '..', 'PRINTStudio.html'), 'utf8');
 const fn = name => { const i = html.indexOf(`function ${name}(`); return html.slice(i, html.indexOf('\n}\n', i) + 3); };
 const { subst, labelCopies, apiCopies, printChunks, labelRanges } = new Function(
   'const PQ_MAX_PER_LABEL = 10, COPIES_PER_REQUEST = 100;\n' +

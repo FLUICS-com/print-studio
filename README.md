@@ -4,7 +4,7 @@ Print labels on FLUICS online label printers from your browser: one label, a bat
 
 ## Use it
 
-1. Download `index.html` (or the release of your choice under Releases/Tags).
+1. Download `PRINTStudio.html` (or the release of your choice under Releases/Tags).
 2. Open it in a current browser, or upload it to any static web server to use it on phones and tablets.
 3. Click the gear icon, Connect printer, and enter your FLUICS PRINT API key. Request a key at connect@fluics.com.
 

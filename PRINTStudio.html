@@ -621,14 +621,14 @@
 <p>PRINT Studio is open source under the MIT License. Source code and the latest version are at https://github.com/FLUICS-com/print-studio; the complete FLUICS PRINT API documentation (Swagger) is at https://printers.fluics.com/fluics/printapi-docs/prod/. The software is provided as is and used under your own responsibility: check every label in the preview before printing.</p>
 <h3>1. Requirements</h3>
 <ul>
-<li>A current browser (Chrome, Edge, Firefox or Safari). The app runs from the file itself (double-click <code>index.html</code>, renamed as you like), from any web server, and on phones or tablets via a server URL (see Installation below).</li>
+<li>A current browser (Chrome, Edge, Firefox or Safari). The app runs from the file itself (double-click <code>PRINTStudio.html</code>), from any web server, and on phones or tablets via a server URL (see Installation below).</li>
 <li>A FLUICS PRINT API key. Request one at connect@fluics.com.</li>
 <li>Internet access for printing, for the visual label preview (Labelary) and for the first load of the Excel reader. Copy and paste and CSV files also work offline.</li>
 </ul>
 <h3>2. Installation and first start</h3>
 <p>The app is one file with no server-side code. Three ways to run it:</p>
 <ul>
-<li><strong>Locally on a computer</strong>: keep <code>index.html</code> (renamed as you like) in a folder and open it with a double-click. Configuration and audit log stay in that browser.</li>
+<li><strong>Locally on a computer</strong>: keep <code>PRINTStudio.html</code> in a folder and open it with a double-click. Configuration and audit log stay in that browser.</li>
 <li><strong>On a server</strong>: upload the file to any web space (static hosting, Apache, nginx, a PHP hosting package: no PHP needed), then open its URL. Everyone opening the URL still keeps their own configuration in their own browser; share a configuration file to align them. HTTPS is recommended (needed for the barcode scanner).</li>
 <li><strong>On a phone or tablet</strong>: open the server URL in the mobile browser and add it to the home screen. The layout adapts to narrow screens; the preview shows a Table / Visual toggle.</li>
 </ul>
@@ -784,7 +784,7 @@
 <h3>5. Where the data lives</h3>
 <p>The audit log and the pasted data are stored in the browser's local storage for this file location. Opening the same HTML file from a different folder or in a different browser starts with an empty configuration: use export and import to carry it over.</p>
 <h3>6. Versions and updates</h3>
-<p>Releases are published in the GitHub repository <a target="_blank" class="text-blue-600 underline" href="https://github.com/FLUICS-com/print-studio">FLUICS-com/print-studio</a>, each as a tag (<code>v1.0</code>, <code>v1.1</code>, …) with the app (<code>index.html</code>), this manual and an example configuration. The version is shown in the footer and is written into every exported configuration (<code>appVersion</code>) and into every audit entry. Newer versions read configurations exported from older versions; the settings are converted automatically on import. To update: export your configuration in the old version, open the new file, import the configuration. If both files are opened from the same folder in the same browser, they share the stored settings, so the new version picks them up without an import.</p>
+<p>Releases are published in the GitHub repository <a target="_blank" class="text-blue-600 underline" href="https://github.com/FLUICS-com/print-studio">FLUICS-com/print-studio</a>, each as a tag (<code>v1.0</code>, <code>v1.1</code>, …) with the app (<code>PRINTStudio.html</code>), this manual and an example configuration. The version is shown in the footer and is written into every exported configuration (<code>appVersion</code>) and into every audit entry. Newer versions read configurations exported from older versions; the settings are converted automatically on import. To update: export your configuration in the old version, open the new file, import the configuration. If both files are opened from the same folder in the same browser, they share the stored settings, so the new version picks them up without an import.</p>
 <p><strong>Version 1.1</strong> (October 2026), safety release after an external review:</p>
 <ul>
 <li>A label counts as printed only when the printer confirms it; failed labels are listed by number and the audit log marks the job as <em>Partly</em>.</li>

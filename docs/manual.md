@@ -6,7 +6,7 @@ PRINT Studio is open source under the MIT License. Source code and the latest ve
 
 ## 1. Requirements
 
-- A current browser (Chrome, Edge, Firefox or Safari). The app runs from the file itself (double-click `index.html`, renamed as you like), from any web server, and on phones or tablets via a server URL (see Installation below).
+- A current browser (Chrome, Edge, Firefox or Safari). The app runs from the file itself (double-click `PRINTStudio.html`), from any web server, and on phones or tablets via a server URL (see Installation below).
 - A FLUICS PRINT API key. Request one at connect@fluics.com.
 - Internet access for printing, for the visual label preview (Labelary) and for the first load of the Excel reader. Copy and paste and CSV files also work offline.
 
@@ -14,7 +14,7 @@ PRINT Studio is open source under the MIT License. Source code and the latest ve
 
 The app is one file with no server-side code. Three ways to run it:
 
-- **Locally on a computer**: keep `index.html` (renamed as you like) in a folder and open it with a double-click. Configuration and audit log stay in that browser.
+- **Locally on a computer**: keep `PRINTStudio.html` in a folder and open it with a double-click. Configuration and audit log stay in that browser.
 - **On a server**: upload the file to any web space (static hosting, Apache, nginx, a PHP hosting package: no PHP needed), then open its URL. Everyone opening the URL still keeps their own configuration in their own browser; share a configuration file to align them. HTTPS is recommended (needed for the barcode scanner).
 - **On a phone or tablet**: open the server URL in the mobile browser and add it to the home screen. The layout adapts to narrow screens; the preview shows a Table / Visual toggle.
 
@@ -175,7 +175,7 @@ The audit log and the pasted data are stored in the browser's local storage for 
 
 ## 6. Versions and updates
 
-Releases are published in the GitHub repository [FLUICS-com/print-studio](https://github.com/FLUICS-com/print-studio), each as a tag (`v1.0`, `v1.1`, …) with the app (`index.html`), this manual and an example configuration. The version is shown in the footer and is written into every exported configuration (`appVersion`) and into every audit entry. Newer versions read configurations exported from older versions; the settings are converted automatically on import. To update: export your configuration in the old version, open the new file, import the configuration. If both files are opened from the same folder in the same browser, they share the stored settings, so the new version picks them up without an import.
+Releases are published in the GitHub repository [FLUICS-com/print-studio](https://github.com/FLUICS-com/print-studio), each as a tag (`v1.0`, `v1.1`, …) with the app (`PRINTStudio.html`), this manual and an example configuration. The version is shown in the footer and is written into every exported configuration (`appVersion`) and into every audit entry. Newer versions read configurations exported from older versions; the settings are converted automatically on import. To update: export your configuration in the old version, open the new file, import the configuration. If both files are opened from the same folder in the same browser, they share the stored settings, so the new version picks them up without an import.
 
 **Version 1.1** (October 2026), safety release after an external review:
 
