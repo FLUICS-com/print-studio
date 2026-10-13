@@ -354,7 +354,6 @@
           </div>
         </div>
         <div id="preview-warning" class="hidden mb-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700"></div>
-        <div id="preview-disabled-hint" class="hidden mb-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500">A rendered image of each label is available from Labelary, an external service that receives the label content: <button type="button" onclick="enableLabelary()" class="text-blue-600 underline">switch on the rendered preview</button>.</div>
 
         <!-- On wide screens both panes are shown side by side; on narrow screens the toggle above switches between them. -->
         <div id="preview-grid" class="lg:grid lg:gap-4" style="grid-template-columns:minmax(0,1fr) 320px">
@@ -382,7 +381,7 @@
                 <button type="button" onclick="labelaryNav(1)"  id="lbl-next" class="px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-30">›</button>
               </div>
             </div>
-            <div id="labelary-container" class="relative bg-gray-100 rounded-lg flex items-center justify-center min-h-32 p-4 text-sm text-gray-400 italic cursor-pointer" title="Click to render this label" onclick="clearLabelaryCache(); requestLabelaryRender()">
+            <div id="labelary-container" class="relative bg-gray-100 rounded-lg flex items-center justify-center min-h-32 p-4 text-sm text-gray-400 italic cursor-pointer" title="Click to render this label" onclick="onLabelaryContainerClick()">
               Select a template and fill in the form to render a label
             </div>
             <p class="text-xs text-gray-400 mt-1.5 text-right">Rendered by Labelary when you click the label, label size per template. <button type="button" onclick="openSettings('general')" class="underline hover:text-gray-600">Preview settings</button></p>
@@ -719,7 +718,7 @@
 <p>Bundles from earlier versions (product groups) are converted: every test becomes a label type row; the product itself is entered as a shared value.</p>
 <h3>3.5 Preview</h3>
 <p>The preview shows exactly the labels that will be sent, one row per label, after all counters and copies have been expanded. The number of labels is shown at the top right and on the Print button.</p>
-<p>On wide screens the rendered label image (Labelary) is shown next to the table; on narrow screens the rendered label is shown first and the <strong>Table / Visual</strong> toggle switches to the table. To keep the number of requests to Labelary low, typing never triggers a render. The image is refreshed once when the page or a print mode is opened, whenever you move on to the next field (click or tab into another input, change a dropdown, a date or a checkbox), and when you click the image itself. Until then the old image is dimmed with the note <em>Content changed. Click to render</em>. Use ‹ › to step through the labels (each step renders that label). The image is rendered by the third-party service labelary.com; the label code, including the values printed on it, is sent there for every render. The rendered preview is therefore <strong>off until you switch it on</strong>: the hint in the preview section (or Settings, General) asks once whether label content may be sent to labelary.com, and only after you agree are images rendered. It can be switched off again at any time. The table preview always works and sends nothing.</p>
+<p>On wide screens the rendered label image (Labelary) is shown next to the table; on narrow screens the rendered label is shown first and the <strong>Table / Visual</strong> toggle switches to the table. To keep the number of requests to Labelary low, typing never triggers a render. The image is refreshed once when the page or a print mode is opened, whenever you move on to the next field (click or tab into another input, change a dropdown, a date or a checkbox), and when you click the image itself. Until then the old image is dimmed with the note <em>Content changed. Click to render</em>. Use ‹ › to step through the labels (each step renders that label). The image is rendered by the third-party service labelary.com; the label code, including the values printed on it, is sent there for every render. The rendered preview is therefore <strong>off until you switch it on</strong>: the image field shows <em>Rendered label preview, Click to switch it on</em>; clicking it (on phones first tap <strong>Visual</strong>) asks once whether label content may be sent to labelary.com, and only after you agree are images rendered. The switch under Settings, General does the same. It can be switched off again at any time. The table preview always works and sends nothing.</p>
 <p>A yellow warning appears when a template placeholder has no value, for example <em>${BATCH_ID} (empty in 3 of 25)</em>. Fix the data or the mapping before printing. More than 100 labels are sent in several requests automatically; a red note appears when a job has more than 1,000 labels, which is more than one job may print.</p>
 <h3>3.6 Printing</h3>
 <p>Select template and printer, check the preview, click <strong>Print</strong>. The button shows the number of labels. The result is shown below the button and written to the audit log, also when the print fails.</p>
@@ -837,7 +836,7 @@
 <li><strong>Pasted text lands in one column</strong>: the data was copied as plain text without tabs. Copy the cells directly from Excel, or save as CSV and upload.</li>
 <li><strong>Numbers or dates look different than in Excel</strong>: Excel cell formatting is not transferred. Dates are read as real dates and printed in the configured date format; formatted numbers (for example 1.000,5) are read as plain numbers.</li>
 <li><strong>Excel file does not load</strong>: the Excel reader is loaded from the internet on first use. Without connection, save the sheet as CSV or paste the cells instead.</li>
-<li><strong>No image in the preview</strong>: the rendered preview is off (the default; switch it on from the hint in the preview section), the internet connection is blocked, or Labelary's rate limit was reached (the preview then says so; wait a moment and click the label image again). Label sizes entered in millimetres are converted to inches for Labelary automatically.</li>
+<li><strong>No image in the preview</strong>: the rendered preview is off (the default; click the image field to switch it on), the internet connection is blocked, or Labelary's rate limit was reached (the preview then says so; wait a moment and click the label image again). Label sizes entered in millimetres are converted to inches for Labelary automatically.</li>
 <li><strong>Camera icon does nothing</strong>: barcode scanning needs HTTPS (or localhost) and camera permission.</li>
 <li><strong>Configuration disappeared</strong>: the browser's site data was cleared, or the file was opened from a different location. Import your last export.</li>
 </ul>
@@ -3393,19 +3392,41 @@ let previewInitialised = false;
 
 function applyLabelarySetting() {
   const enabled = labelaryOn();
-  const btn = document.getElementById('preview-tab-visual');
-  if (btn) btn.style.display = enabled ? '' : 'none';
-  // Collapse the side-by-side layout to a single column when the image pane is off.
-  const pane = document.getElementById('preview-visual-pane');
-  if (pane) pane.style.display = enabled ? '' : 'none';
-  const grid = document.getElementById('preview-grid');
-  if (grid) grid.style.gridTemplateColumns = enabled ? 'minmax(0,1fr) 320px' : 'minmax(0,1fr)';
-  document.getElementById('preview-disabled-hint')?.classList.toggle('hidden', enabled);
+  // The image pane (and the Visual tab on phones) stays visible when Labelary
+  // is off: it then holds a placeholder, and clicking it asks for consent.
+  if (!enabled) showLabelaryOff();
   syncPrintButton();
   if (!enabled && previewMode === 'visual') setPreviewMode('table');
   else if (enabled && !previewInitialised) setPreviewMode('visual');
   previewInitialised = true;
   if (enabled) renderLabelaryPreview();
+}
+
+/** Placeholder in the image field while Labelary is off; nothing is sent. */
+function showLabelaryOff() {
+  const container = document.getElementById('labelary-container');
+  if (container) {
+    container.title = 'Click to switch on the rendered preview';
+    container.innerHTML = '<span class="text-gray-500 not-italic text-xs text-center leading-relaxed">Rendered label preview<br>'
+      + '<span class="text-blue-600 underline">Click to switch it on</span></span>';
+  }
+  const navInfo = document.getElementById('lbl-nav-info');
+  if (navInfo) navInfo.textContent = '0 / 0';
+  ['lbl-prev', 'lbl-next'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = true; });
+}
+
+/**
+ * Click on the image field. While Labelary is off this is where the user is
+ * asked (once) whether label content may be sent to labelary.com; afterwards
+ * a click renders the current label.
+ */
+function onLabelaryContainerClick() {
+  if (!labelaryOn()) {
+    if (enableLabelary()) { document.getElementById('labelary-container').title = 'Click to render this label'; requestLabelaryRender(); }
+    return;
+  }
+  clearLabelaryCache();
+  requestLabelaryRender();
 }
 
 /**
