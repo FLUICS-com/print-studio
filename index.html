@@ -3210,7 +3210,7 @@ async function saveLabelsPdf() {
 let labelaryIndex = 0;
 
 /** Current preview mode on narrow screens: 'table' | 'visual'. On wide screens both panes are shown. */
-let previewMode = 'visual'; // narrow screens start on the rendered label; applyLabelarySetting() falls back to the table when rendering is off
+let previewMode = 'visual'; // narrow screens start on the label image (a consent placeholder while Labelary is off)
 
 /** Media query for the side-by-side preview layout (Tailwind lg breakpoint). */
 const wideQuery = window.matchMedia('(min-width: 1024px)');
@@ -3396,8 +3396,10 @@ function applyLabelarySetting() {
   // is off: it then holds a placeholder, and clicking it asks for consent.
   if (!enabled) showLabelaryOff();
   syncPrintButton();
-  if (!enabled && previewMode === 'visual') setPreviewMode('table');
-  else if (enabled && !previewInitialised) setPreviewMode('visual');
+  // Narrow screens open on the label image, also while Labelary is off: the
+  // field then shows the placeholder that asks for consent on click.
+  if (!previewInitialised) setPreviewMode('visual');
+  else if (!enabled) showLabelaryOff();
   previewInitialised = true;
   if (enabled) renderLabelaryPreview();
 }
