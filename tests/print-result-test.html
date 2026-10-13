@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRINT Studio print result test</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 16px; background: #fff; color: #222; }
+  .pass { color: #0a7d32; } .fail { color: #b00020; font-weight: 600; }
+  iframe { width: 100%; height: 360px; border: 1px solid #ccc; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h1>PRINT Studio print result test</h1>
+<p>Runs printing against a mocked FLUICS PRINT API (no network, fake API key) and checks the
+per-label results, the copy limits, the Labelary consent and the two export kinds. Serve the
+repository root on a spare port (<code>python3 -m http.server 8770</code>) and open
+<code>/tests/print-result-test.html</code>; the test overwrites this origin's <code>lr_state</code>.</p>
+<ol id="out"></ol>
+<p id="summary">Running…</p>
+<iframe id="app" title="App under test"></iframe>
+<script>
+const results = [];
+function check(name, ok, detail = '') {
+  results.push(ok);
+  const li = document.createElement('li');
+  li.className = ok ? 'pass' : 'fail';
+  li.textContent = `${ok ? 'PASS' : 'FAIL'}: ${name}${detail ? ' (' + detail + ')' : ''}`;
+  document.getElementById('out').appendChild(li);
+}
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function loadApp() {
+  return new Promise(res => {
+    const f = document.getElementById('app');
+    f.onload = () => res(f.contentWindow);
+    f.src = '../index.html?t=' + Date.now();
+  });
+}
+
+(async () => {
+  localStorage.removeItem('lr_state');
+  const w = await loadApp();
+  await wait(300);
+  const S = w.eval('S');
+
+  // Mocked print API. reply(chunk) decides the answer for one batchprint request.
+  const requests = [];
+  let reply = chunk => ({ status: 200, body: { status: 'OK', labels: chunk.map(l => ({ jobID: l.id, status: 'OK' })) } });
+  w.fetch = async (url, opts = {}) => {
+    if (/\/batchprint$/.test(String(url))) {
+      const chunk = JSON.parse(opts.body);
+      requests.push(chunk);
+      const r = reply(chunk);
+      return new w.Response(JSON.stringify(r.body), { status: r.status, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (/labelary/.test(String(url))) { requests.push('LABELARY'); return new w.Response('', { status: 200 }); }
+    return new w.Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  w.confirm = () => true;
+
+  // A test template and printer; labels come from a stub so the test controls them.
+  S.settings.apiKey = 'test-key';
+  S.templates.push({ id: 'tpl-test', name: 'Test', zpl: '^FO10,10^FD${NAME}^FS^PQ${N}', labelWidth: 1, labelHeight: 0.5, labelDpmm: 12 });
+  const sel = w.document.getElementById('template-select');
+  sel.add(new w.Option('Test', 'tpl-test')); sel.value = 'tpl-test';
+  const ps = w.document.getElementById('printer-select');
+  ps.add(new w.Option('Test printer', 'TST1')); ps.value = 'TST1';
+  let labels = [];
+  w.buildLabels = () => labels;
+  const make = (n, copies = 1) => Array.from({ length: n }, (_, i) => ({ NAME: 'Item ' + (i + 1), N: String(copies) }));
+  const status = () => w.document.getElementById('print-status').textContent;
+  const lastAudit = () => S.auditLog[0];
+
+  // 1. All labels OK.
+  labels = make(3);
+  await w.printLabels();
+  check('all labels OK is reported as printed', /3 labels printed/.test(status()) && lastAudit().status === 'success', status());
+
+  // 2. Per-label failure inside an HTTP 200 answer.
+  labels = make(5);
+  reply = chunk => ({ status: 200, body: { status: 'OK', printerStatus: '01', labels: chunk.map((l, i) => ({ jobID: l.id, status: i < 2 ? 'OK' : 'error' })) } });
+  await w.printLabels();
+  check('HTTP 200 with failed labels is not success', lastAudit().status === 'partial', status());
+  check('message names the labels to print again', /labels 1-2\)/.test(status()) && /print only labels 3-5 again/.test(status()), status());
+  check('printer status is explained', /labels are empty or jammed/.test(status()));
+
+  // 3. A print server without per-label results.
+  labels = make(2);
+  reply = () => ({ status: 200, body: { status: 'OK' } });
+  await w.printLabels();
+  check('answer without labels[] counts as sent, with a note', /2 labels printed \(the print server did not confirm/.test(status()), status());
+
+  // 4. Copies per label over the printer limit are refused before sending.
+  requests.length = 0;
+  labels = make(2, 12);
+  await w.printLabels();
+  check('^PQ over 10 is refused, nothing sent', requests.length === 0 && /1 to 10 copies/.test(status()), status());
+
+  // 5. Job size ceiling.
+  labels = make(600, 2);
+  await w.printLabels();
+  check('more than 1000 labels in one job is refused', requests.length === 0 && /more than 1000/.test(status()), status());
+
+  // 6. Requests respect 100 copies.
+  reply = chunk => ({ status: 200, body: { status: 'OK', labels: chunk.map(l => ({ jobID: l.id, status: 'OK' })) } });
+  labels = make(120, 2);
+  await w.printLabels();
+  check('requests hold at most 100 copies', requests.map(r => r.length).join() === '50,50,20', requests.map(r => r.length).join());
+
+  // 7. A value with ^ in a command parameter is refused.
+  requests.length = 0;
+  labels = [{ NAME: 'x', N: '1^PQ99' }];
+  await w.printLabels();
+  check('^ in a command parameter is refused', requests.length === 0 && /inside a ZPL command/.test(status()), status());
+
+  // 8. Labelary is off until the user agrees.
+  check('Labelary is off on a fresh install', w.labelaryOn() === false);
+  let threw = false;
+  try { await w.labelaryFetch('https://api.labelary.com/x', '^XA^XZ'); } catch { threw = true; }
+  check('nothing is sent to Labelary while off', threw && !requests.includes('LABELARY'));
+  w.confirm = () => false;
+  w.enableLabelary();
+  check('declining the question keeps it off', w.labelaryOn() === false);
+  w.confirm = () => true;
+  w.enableLabelary();
+  check('agreeing switches it on', w.labelaryOn() === true);
+
+  // 9. Exports: shared without key and audit log, backup with both.
+  const files = [];
+  w.HTMLAnchorElement.prototype.click = function () { files.push({ name: this.download, href: this.href }); };
+  const origURL = w.URL.createObjectURL;
+  const blobs = new Map();
+  w.URL.createObjectURL = b => { const u = origURL.call(w.URL, b); blobs.set(u, b); return u; };
+  w.URL.revokeObjectURL = () => {};
+  w.exportState('share'); w.exportState('backup');
+  const [share, backup] = await Promise.all(files.map(f => blobs.get(f.href).text().then(JSON.parse)));
+  check('shared export has no API key and no audit log', share.settings.apiKey === '' && !('auditLog' in share) && !('labelaryConsent' in share.settings));
+  check('private backup has the key and the audit log', backup.settings.apiKey === 'test-key' && Array.isArray(backup.auditLog) && /PRIVATE-backup/.test(files[1].name));
+
+  // 10. Importing a shared file keeps this browser's key and audit log.
+  const auditBefore = S.auditLog.length;
+  w.importState(new w.File([JSON.stringify(share)], 'shared.json', { type: 'application/json' }));
+  await wait(400);
+  const S2 = w.eval('S');
+  check('import of a shared file keeps the API key and audit log', S2.settings.apiKey === 'test-key' && S2.auditLog.length === auditBefore);
+  check('Labelary consent stays the one of this browser', S2.settings.labelaryConsent === true);
+
+  localStorage.removeItem('lr_state');
+  const failed = results.filter(r => !r).length;
+  document.getElementById('summary').innerHTML = failed
+    ? `<strong class="fail">${failed} of ${results.length} checks failed</strong>`
+    : `<strong class="pass">All ${results.length} checks passed</strong>`;
+  document.title = failed ? 'FAIL' : 'PASS';
+})().catch(e => { check('test ran without errors', false, e.message); document.title = 'FAIL'; });
+</script>
+</body>
+</html>

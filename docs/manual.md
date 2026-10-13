@@ -1,4 +1,4 @@
-# FLUICS PRINT Studio v1.0: User Manual
+# FLUICS PRINT Studio v1.1: User Manual
 
 PRINT Studio is a single HTML file that runs in your browser and sends label print jobs to FLUICS online label printers. Nothing is installed and no data is stored on a server: the configuration, the pasted data and the audit log live in your browser's local storage. Only the finished label content is sent to the printer through the FLUICS PRINT cloud API.
 
@@ -6,7 +6,7 @@ PRINT Studio is open source under the MIT License. Source code and the latest ve
 
 ## 1. Requirements
 
-- A current browser (Chrome, Edge, Firefox or Safari). The app runs from the file itself (double-click `PRINT Studio v10.html`), from any web server, and on phones or tablets via a server URL (see Installation below).
+- A current browser (Chrome, Edge, Firefox or Safari). The app runs from the file itself (double-click `index.html`, renamed as you like), from any web server, and on phones or tablets via a server URL (see Installation below).
 - A FLUICS PRINT API key. Request one at connect@fluics.com.
 - Internet access for printing, for the visual label preview (Labelary) and for the first load of the Excel reader. Copy and paste and CSV files also work offline.
 
@@ -14,7 +14,7 @@ PRINT Studio is open source under the MIT License. Source code and the latest ve
 
 The app is one file with no server-side code. Three ways to run it:
 
-- **Locally on a computer**: keep `PRINT Studio v10.html` in a folder and open it with a double-click. Configuration and audit log stay in that browser.
+- **Locally on a computer**: keep `index.html` (renamed as you like) in a folder and open it with a double-click. Configuration and audit log stay in that browser.
 - **On a server**: upload the file to any web space (static hosting, Apache, nginx, a PHP hosting package: no PHP needed), then open its URL. Everyone opening the URL still keeps their own configuration in their own browser; share a configuration file to align them. HTTPS is recommended (needed for the barcode scanner).
 - **On a phone or tablet**: open the server URL in the mobile browser and add it to the home screen. The layout adapts to narrow screens; the preview shows a Table / Visual toggle.
 
@@ -23,7 +23,7 @@ First start:
 1. Open the HTML file. The book icon (top right) opens this manual, the gear icon opens the settings; the version number is in the footer.
 2. As long as no API key is stored, the printer field under 1 shows a link *No printer connected* that opens the right place: the gear icon, section **Connect printer**. Enter your API key there; it is masked, the eye icon shows it. The field is deliberately not a browser password field, so no browser offers to save the key as a password. Leave the base URL unchanged unless FLUICS told you otherwise. Click **Save and load printers**. Under **General**, pick your date format and whether label sizes are shown in inches or millimetres.
 3. Check the **Label templates** section. A fresh installation already contains the FLUICS demo setup: the templates *Type 1 Labels (text only)*, *Type 1 Labels (qr code)*, *Type 4 Labels (qr code)* and *Type 12 Labels (circle+rectangle)*, plus two example bundles. Matching labels and ribbons are at https://fluics.com/labels.
-4. If you received a configuration file (`fluics-print-studio-config-….json`), import it in the **General** section → Import. Everything (templates, placeholders, bundles, printers, audit log) is restored.
+4. If you received a configuration file (`fluics-print-studio-config-….json`), import it in the **General** section → Import. Templates, placeholders, bundles and printer names are restored; a shared file contains no API key, so enter your own under **Connect printer**.
 
 ## 3. Printing
 
@@ -110,19 +110,27 @@ Bundles from earlier versions (product groups) are converted: every test becomes
 
 The preview shows exactly the labels that will be sent, one row per label, after all counters and copies have been expanded. The number of labels is shown at the top right and on the Print button.
 
-On wide screens the rendered label image (Labelary) is shown next to the table; on narrow screens the rendered label is shown first and the **Table / Visual** toggle switches to the table. To keep the number of requests to Labelary low, typing never triggers a render. The image is refreshed once when the page or a print mode is opened, whenever you move on to the next field (click or tab into another input, change a dropdown, a date or a checkbox), and when you click the image itself. Until then the old image is dimmed with the note *Content changed. Click to render*. Use ‹ › to step through the labels (each step renders that label). The image is rendered by the third-party service labelary.com; your label text is sent there for rendering. It can be switched off under Settings, General (the **Preview settings** link below the image leads there); a hint in the preview section then reminds you that rendering is available. The table preview always works.
+On wide screens the rendered label image (Labelary) is shown next to the table; on narrow screens the rendered label is shown first and the **Table / Visual** toggle switches to the table. To keep the number of requests to Labelary low, typing never triggers a render. The image is refreshed once when the page or a print mode is opened, whenever you move on to the next field (click or tab into another input, change a dropdown, a date or a checkbox), and when you click the image itself. Until then the old image is dimmed with the note *Content changed. Click to render*. Use ‹ › to step through the labels (each step renders that label). The image is rendered by the third-party service labelary.com; the label code, including the values printed on it, is sent there for every render. The rendered preview is therefore **off until you switch it on**: the hint in the preview section (or Settings, General) asks once whether label content may be sent to labelary.com, and only after you agree are images rendered. It can be switched off again at any time. The table preview always works and sends nothing.
 
-A yellow warning appears when a template placeholder has no value, for example *${BATCH_ID} (empty in 3 of 25)*. Fix the data or the mapping before printing. More than 100 labels are sent in chunks of 100 automatically.
+A yellow warning appears when a template placeholder has no value, for example *${BATCH_ID} (empty in 3 of 25)*. Fix the data or the mapping before printing. More than 100 labels are sent in several requests automatically; a red note appears when a job has more than 1,000 labels, which is more than one job may print.
 
 ### 3.6 Printing
 
 Select template and printer, check the preview, click **Print**. The button shows the number of labels. The result is shown below the button and written to the audit log, also when the print fails.
-Jobs with more than 500 labels ask for confirmation first, to catch a typo in a number of labels or a Copies cell. Large jobs are sent in chunks of 100. If a later chunk fails (for example the printer goes offline), the message says how many labels were already printed, so you only print the rest again.
+
+A label counts as printed only when the printer confirms it: the print service reports a result per label, and labels reported with an error (for example *labels are empty or jammed*, *the printer lid is open*) or not confirmed in time are listed by number. The message says which labels were printed and which to print again, for example *2 of 5 labels printed (labels 1-2); print only labels 3-5 again*, and the audit log shows the job as *Partly*. A local print server that does not report per label is accepted, and the message says that the labels were not confirmed one by one.
+
+Limits, checked before anything is sent:
+- Jobs with more than 500 labels ask for confirmation, to catch a typo in a number of labels or a Copies cell.
+- One job prints at most 1,000 labels; split bigger jobs.
+- A label template may ask for 1 to 10 copies per label (`^PQ`), the limit of the print service.
+- Large jobs are sent in several requests of at most 100 labels and 100 copies. If a request fails, the following ones are not sent and the message lists the labels to print again.
+- A value used inside a ZPL command of the template (for example `^PQ${COPIES}`) may not contain `^`, `~` or a line break; such a job is refused instead of printing something else. Values in text fields may contain any character: `^`, `~` and `\` are printed literally (the app adds `^FH` and hex escapes, and respects an `^FH` indicator that the template already sets).
 
 Values are printed exactly as entered: characters that ZPL would treat as commands (`^`, `~`, `\`) are escaped automatically, so a value like `A^B` prints as `A^B`.
 
 
-**Save as PDF** renders the same labels through Labelary and downloads `fluics-print-studio-labels-<date_time>.pdf` with one label per page, at the template's label size. Use it when no printer is connected (the hint next to the buttons says so when no API key is stored), to print on an office printer, or to archive a job. The visual preview must be enabled: if it is off, the button is disabled and a note links to Settings, General. PDF exports are written to the audit log with *PDF file* as printer.
+**Save as PDF** renders the same labels through Labelary and downloads `fluics-print-studio-labels-<date_time>.pdf` with one label per page, at the template's label size. Use it when no printer is connected (the hint next to the buttons says so when no API key is stored), to print on an office printer, or to archive a job. The rendered preview must be switched on (see 3.5): if it is off, the button is disabled and a note offers to switch it on. PDF exports are written to the audit log with *PDF file* as printer.
 
 | Message | Meaning | What to do |
 |---|---|---|
@@ -139,9 +147,9 @@ The gear icon opens the settings panel with five sections.
 
 - **Date format**: how every date placeholder is printed, in all print modes (for example 2026-04-21, 21.04.2026, 21Apr26).
 - **Label dimensions**: whether label width and height are shown and entered in inches or millimetres in the template editor. Templates are stored in inches internally, switching the unit converts the display.
-- **Preview**: switches the Labelary rendering on or off (see 3.5).
+- **Preview**: switches the Labelary rendering on or off (see 3.5). It is off by default and asks once before label content is sent to labelary.com.
 - **Reset**: **Reset app to factory defaults** removes everything stored in this browser (settings, API key, templates, bundles, entered values, audit log) and starts again with the demo setup. Export first if you want to keep anything. The same effect: delete the site's data in the browser settings (iPhone: Settings, Safari, Advanced, Website Data; Android Chrome: site settings, Clear and reset).
-- **Configuration file**: **Export** downloads the complete setup (templates, placeholders, bundles, printer names, settings including the API key, audit log) as a JSON file; **Import** restores it. The selected printer is not part of the file: printers are loaded live from the API whenever the app is used. Rows for placeholders that exist in none of your templates, and rows that still have their default value, are dropped automatically; the `variables` block only names the placeholders with a role (date, counter) and a few legacy names. Use export to back up your setup, to move it to another computer, or to send it to FLUICS support. The file name contains the app version and the local date and time down to the second (`fluics-print-studio-config-v10-2026-09-25_14-05-33.json`), so repeated exports never overwrite each other. Importing replaces everything in the browser, including the audit log, so export the current state first if you want to keep it. The app asks before importing and refuses files that are not a PRINT Studio configuration; if an import fails, the previous configuration is kept.
+- **Configuration file**: **Export** downloads the setup (templates, placeholders, bundles, printer names, settings) as a JSON file to share with colleagues or FLUICS support; it contains **no API key and no audit log**. **Private backup** downloads the same plus the API key and the audit log with the printed label content, to move to another computer; its file name starts with `fluics-print-studio-PRIVATE-backup`, keep it to yourself. **Import** restores either file; a file without API key or audit log keeps the ones already in this browser, and ids that are not plain letters, digits, `-` or `_` make the import stop. The selected printer is not part of the file: printers are loaded live from the API whenever the app is used. Rows for placeholders that exist in none of your templates, and rows that still have their default value, are dropped automatically; the `variables` block only names the placeholders with a role (date, counter) and a few legacy names. Use **Export** to share the setup or send it to FLUICS support, **Private backup** to move it to another computer. The file name contains the app version and the local date and time down to the second (`fluics-print-studio-config-v11-2026-10-13_14-05-33.json`), so repeated exports never overwrite each other. Importing a private backup replaces everything in the browser, including the audit log, so make a backup of the current state first if you want to keep it. The app asks before importing and refuses files that are not a PRINT Studio configuration; if an import fails, the previous configuration is kept.
 
 ### 4.2 Connect printer
 
@@ -159,7 +167,7 @@ A free-text field for ideas and reminders, stored with the configuration.
 
 ### 4.5 Audit Log
 
-Every print attempt is recorded with timestamp (local time with UTC offset), printer, template, mode (Batch, Bundle or Paste), bundle name or data source (file name, Clipboard or Manual entry), number of labels, result, error text, app version and the full ZPL of every label. **Export CSV** downloads the log, **Clear** deletes it after confirmation. The log keeps the most recent 500 entries. It is stored **only in this browser on this device, not on the print server**: other devices and browsers keep their own log, and clearing the browser data deletes it. Export it regularly if you need it for documentation. Browsers limit the storage per site (typically about 5 MB); when it is full, the label details (ZPL) of the oldest entries are removed first and a note tells you so.
+Every print attempt is recorded with timestamp (local time with UTC offset), printer, template, mode (Batch, Bundle or Paste), bundle name or data source (file name, Clipboard or Manual entry), number of labels, result (*OK*, *Partly* or *Error*), error text, app version and the full ZPL of every label. **Export CSV** downloads the log, **Clear** deletes it after confirmation. The log keeps the most recent 500 entries. It is stored **only in this browser on this device, not on the print server**: other devices and browsers keep their own log, and clearing the browser data deletes it. Export it regularly if you need it for documentation. Browsers limit the storage per site (typically about 5 MB); when it is full, the label details (ZPL) of the oldest entries are removed first and a note tells you so.
 
 ## 5. Where the data lives
 
@@ -167,7 +175,16 @@ The audit log and the pasted data are stored in the browser's local storage for 
 
 ## 6. Versions and updates
 
-Every release is a separate file (`PRINT Studio v06.html` for version 0.6, `PRINT Studio v10.html` for version 1.0, and so on) with a matching example configuration (`PRINT STUDIO config v10.json`). The version is shown in the footer and is written into every exported configuration (`appVersion`) and into every audit entry. Newer versions read configurations exported from older versions; the settings are converted automatically on import. To update: export your configuration in the old version, open the new file, import the configuration. If both files are opened from the same folder in the same browser, they share the stored settings, so the new version picks them up without an import.
+Releases are published in the GitHub repository [FLUICS-com/print-studio](https://github.com/FLUICS-com/print-studio), each as a tag (`v1.0`, `v1.1`, …) with the app (`index.html`), this manual and an example configuration. The version is shown in the footer and is written into every exported configuration (`appVersion`) and into every audit entry. Newer versions read configurations exported from older versions; the settings are converted automatically on import. To update: export your configuration in the old version, open the new file, import the configuration. If both files are opened from the same folder in the same browser, they share the stored settings, so the new version picks them up without an import.
+
+**Version 1.1** (October 2026), safety release after an external review:
+
+- A label counts as printed only when the printer confirms it; failed labels are listed by number and the audit log marks the job as *Partly*.
+- Copies are checked before sending: 1 to 10 per label (`^PQ`), at most 1,000 labels per job, requests of at most 100 copies.
+- Values are escaped per ZPL field, respecting an `^FH` indicator in the template; values with `^` or `~` inside a ZPL command are refused.
+- The Labelary preview is off until you agree to send label content to labelary.com.
+- **Export** no longer contains the API key or the audit log; **Private backup** does.
+- Configuration files can no longer run code in the app (ids are checked, generated buttons carry no code); the Excel reader is updated to SheetJS 0.20.3.
 
 **Version 1.0** (September 2026), the first release:
 
@@ -193,7 +210,7 @@ Every release is a separate file (`PRINT Studio v06.html` for version 0.6, `PRIN
 - **Pasted text lands in one column**: the data was copied as plain text without tabs. Copy the cells directly from Excel, or save as CSV and upload.
 - **Numbers or dates look different than in Excel**: Excel cell formatting is not transferred. Dates are read as real dates and printed in the configured date format; formatted numbers (for example 1.000,5) are read as plain numbers.
 - **Excel file does not load**: the Excel reader is loaded from the internet on first use. Without connection, save the sheet as CSV or paste the cells instead.
-- **No image in the preview**: the preview is disabled under Settings, General, the internet connection is blocked, or Labelary's rate limit was reached (the preview then says so; wait a moment and click the label image again). Label sizes entered in millimetres are converted to inches for Labelary automatically.
+- **No image in the preview**: the rendered preview is off (the default; switch it on from the hint in the preview section), the internet connection is blocked, or Labelary's rate limit was reached (the preview then says so; wait a moment and click the label image again). Label sizes entered in millimetres are converted to inches for Labelary automatically.
 - **Camera icon does nothing**: barcode scanning needs HTTPS (or localhost) and camera permission.
 - **Configuration disappeared**: the browser's site data was cleared, or the file was opened from a different location. Import your last export.
 

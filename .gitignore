@@ -1,4 +1,5 @@
 # Config exports contain the API key: never commit them
 fluics-print-studio-config-*.json
+fluics-print-studio-PRIVATE-backup-*.json
 .DS_Store
 __pycache__/

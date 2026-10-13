@@ -354,7 +354,7 @@
           </div>
         </div>
         <div id="preview-warning" class="hidden mb-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700"></div>
-        <div id="preview-disabled-hint" class="hidden mb-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500">A rendered image of each label is available: switch on the visual preview under <button type="button" onclick="openSettings('general')" class="text-blue-600 underline">Settings, General</button>.</div>
+        <div id="preview-disabled-hint" class="hidden mb-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500">A rendered image of each label is available from Labelary, an external service that receives the label content: <button type="button" onclick="enableLabelary()" class="text-blue-600 underline">switch on the rendered preview</button>.</div>
 
         <!-- On wide screens both panes are shown side by side; on narrow screens the toggle above switches between them. -->
         <div id="preview-grid" class="lg:grid lg:gap-4" style="grid-template-columns:minmax(0,1fr) 320px">
@@ -400,7 +400,7 @@
             Save as PDF
           </button>
           <span id="no-printer-hint" class="hidden text-xs text-gray-500">No printer connected: <button type="button" onclick="openSettings('connect')" class="text-blue-600 underline">enter your API key</button> to print, or save the labels as PDF.</span>
-          <span id="pdf-labelary-hint" class="hidden text-xs text-amber-700">Save as PDF needs the label renderer (Labelary): <button type="button" onclick="openSettings('general')" class="underline">switch on the visual preview under Settings, General</button>.</span>
+          <span id="pdf-labelary-hint" class="hidden text-xs text-amber-700">Save as PDF needs the label renderer (Labelary, an external service): <button type="button" onclick="enableLabelary()" class="underline">switch on the rendered preview</button>.</span>
         </div>
         <div id="print-status" style="display:none"></div>
       </div>
@@ -478,7 +478,7 @@
             <div class="flex items-start justify-between gap-4">
               <div>
                 <p class="text-xs font-medium text-gray-700 mb-0.5">Visual label preview</p>
-                <p class="text-xs text-gray-400">Uses <a href="https://labelary.com" target="_blank" class="underline hover:text-gray-600">Labelary</a>, a third-party service. Your ZPL code is sent to their servers for rendering. Review their <a href="https://labelary.com/terms.html" target="_blank" class="underline hover:text-gray-600">Terms of Service</a> before enabling.</p>
+                <p class="text-xs text-gray-400">Uses <a href="https://labelary.com" target="_blank" class="underline hover:text-gray-600">Labelary</a>, a third-party service. Your ZPL code is sent to their servers for rendering. Review their <a href="https://labelary.com/terms.html" target="_blank" class="underline hover:text-gray-600">Terms of Service</a> before enabling. Off by default; the app asks before the first use.</p>
               </div>
               <label class="flex items-center cursor-pointer shrink-0 mt-0.5">
                 <div class="relative">
@@ -492,9 +492,10 @@
           <div class="bg-white rounded-lg border border-gray-200 p-6">
             <h2 class="text-sm font-semibold text-gray-800 mb-4">Configuration file</h2>
             <div>
-              <p class="text-xs text-gray-400 mb-2">Back up the complete setup (templates, placeholders, bundles, printers, audit log) or move it to another computer. Import replaces everything.</p>
-              <div class="flex gap-2 max-w-xs">
-                <button onclick="exportState()" class="btn-secondary text-xs flex-1">↓ Export</button>
+              <p class="text-xs text-gray-400 mb-2"><strong class="font-medium text-gray-600">Export</strong> saves templates, placeholders, bundles, printer names and settings to share with colleagues or FLUICS support, without the API key and the audit log. <strong class="font-medium text-gray-600">Private backup</strong> also contains the API key and the audit log with the printed label content: keep that file to yourself. Import replaces the setup; a file without API key or audit log keeps the ones in this browser.</p>
+              <div class="flex flex-wrap gap-2 max-w-md">
+                <button onclick="exportState('share')" class="btn-secondary text-xs flex-1">↓ Export</button>
+                <button onclick="exportState('backup')" class="btn-secondary text-xs flex-1" title="Includes the API key and the audit log">↓ Private backup</button>
                 <label class="btn-secondary text-xs flex-1 text-center cursor-pointer">
                   ↑ Import
                   <input type="file" accept=".json" class="hidden" onchange="importState(this.files[0]); this.value=''">
@@ -616,19 +617,19 @@
         <button onclick="closeHelp()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
       </div>
       <div class="help overflow-auto px-6 py-5" id="help-content">
-<h2 class="text-base font-semibold text-gray-900 mb-2">FLUICS PRINT Studio v1.0: User Manual</h3>
+<h2 class="text-base font-semibold text-gray-900 mb-2">FLUICS PRINT Studio v1.1: User Manual</h2>
 <p>PRINT Studio is a single HTML file that runs in your browser and sends label print jobs to FLUICS online label printers. Nothing is installed and no data is stored on a server: the configuration, the pasted data and the audit log live in your browser's local storage. Only the finished label content is sent to the printer through the FLUICS PRINT cloud API.</p>
 <p>PRINT Studio is open source under the MIT License. Source code and the latest version are at https://github.com/FLUICS-com/print-studio; the complete FLUICS PRINT API documentation (Swagger) is at https://printers.fluics.com/fluics/printapi-docs/prod/. The software is provided as is and used under your own responsibility: check every label in the preview before printing.</p>
 <h3>1. Requirements</h3>
 <ul>
-<li>A current browser (Chrome, Edge, Firefox or Safari). The app runs from the file itself (double-click <code>PRINT Studio v10.html</code>), from any web server, and on phones or tablets via a server URL (see Installation below).</li>
+<li>A current browser (Chrome, Edge, Firefox or Safari). The app runs from the file itself (double-click <code>index.html</code>, renamed as you like), from any web server, and on phones or tablets via a server URL (see Installation below).</li>
 <li>A FLUICS PRINT API key. Request one at connect@fluics.com.</li>
 <li>Internet access for printing, for the visual label preview (Labelary) and for the first load of the Excel reader. Copy and paste and CSV files also work offline.</li>
 </ul>
 <h3>2. Installation and first start</h3>
 <p>The app is one file with no server-side code. Three ways to run it:</p>
 <ul>
-<li><strong>Locally on a computer</strong>: keep <code>PRINT Studio v10.html</code> in a folder and open it with a double-click. Configuration and audit log stay in that browser.</li>
+<li><strong>Locally on a computer</strong>: keep <code>index.html</code> (renamed as you like) in a folder and open it with a double-click. Configuration and audit log stay in that browser.</li>
 <li><strong>On a server</strong>: upload the file to any web space (static hosting, Apache, nginx, a PHP hosting package: no PHP needed), then open its URL. Everyone opening the URL still keeps their own configuration in their own browser; share a configuration file to align them. HTTPS is recommended (needed for the barcode scanner).</li>
 <li><strong>On a phone or tablet</strong>: open the server URL in the mobile browser and add it to the home screen. The layout adapts to narrow screens; the preview shows a Table / Visual toggle.</li>
 </ul>
@@ -637,7 +638,7 @@
 <li>Open the HTML file. The book icon (top right) opens this manual, the gear icon opens the settings; the version number is in the footer.</li>
 <li>As long as no API key is stored, the printer field under 1 shows a link <em>No printer connected</em> that opens the right place: the gear icon, section <strong>Connect printer</strong>. Enter your API key there; it is masked, the eye icon shows it. The field is deliberately not a browser password field, so no browser offers to save the key as a password. Leave the base URL unchanged unless FLUICS told you otherwise. Click <strong>Save and load printers</strong>. Under <strong>General</strong>, pick your date format and whether label sizes are shown in inches or millimetres.</li>
 <li>Check the <strong>Label templates</strong> section. A fresh installation already contains the FLUICS demo setup: the templates <em>Type 1 Labels (text only)</em>, <em>Type 1 Labels (qr code)</em>, <em>Type 4 Labels (qr code)</em> and <em>Type 12 Labels (circle+rectangle)</em>, plus two example bundles. Matching labels and ribbons are at https://fluics.com/labels.</li>
-<li>If you received a configuration file (<code>fluics-print-studio-config-….json</code>), import it in the <strong>General</strong> section → Import. Everything (templates, placeholders, bundles, printers, audit log) is restored.</li>
+<li>If you received a configuration file (<code>fluics-print-studio-config-….json</code>), import it in the <strong>General</strong> section → Import. Templates, placeholders, bundles and printer names are restored; a shared file contains no API key, so enter your own under <strong>Connect printer</strong>.</li>
 </ol>
 <h3>3. Printing</h3>
 <p>The four cards below the header (Single Print, Paste to Print, Batch Print, Label Bundles) are the four ways to define what gets printed; the highlighted card is the active one. All of them start with section <strong>1 Label template and printer</strong> (choose the template first, its placeholders drive everything below, then the printer), and end with the preview and the Print button. Template and printer are remembered <strong>separately for each mode</strong>, so Single Print can use a different label and printer than Batch Print; in Label Bundles every bundle has its own template.</p>
@@ -718,13 +719,19 @@
 <p>Bundles from earlier versions (product groups) are converted: every test becomes a label type row; the product itself is entered as a shared value.</p>
 <h3>3.5 Preview</h3>
 <p>The preview shows exactly the labels that will be sent, one row per label, after all counters and copies have been expanded. The number of labels is shown at the top right and on the Print button.</p>
-<p>On wide screens the rendered label image (Labelary) is shown next to the table; on narrow screens the rendered label is shown first and the <strong>Table / Visual</strong> toggle switches to the table. To keep the number of requests to Labelary low, typing never triggers a render. The image is refreshed once when the page or a print mode is opened, whenever you move on to the next field (click or tab into another input, change a dropdown, a date or a checkbox), and when you click the image itself. Until then the old image is dimmed with the note <em>Content changed. Click to render</em>. Use ‹ › to step through the labels (each step renders that label). The image is rendered by the third-party service labelary.com; your label text is sent there for rendering. It can be switched off under Settings, General (the <strong>Preview settings</strong> link below the image leads there); a hint in the preview section then reminds you that rendering is available. The table preview always works.</p>
-<p>A yellow warning appears when a template placeholder has no value, for example <em>${BATCH_ID} (empty in 3 of 25)</em>. Fix the data or the mapping before printing. More than 100 labels are sent in chunks of 100 automatically.</p>
+<p>On wide screens the rendered label image (Labelary) is shown next to the table; on narrow screens the rendered label is shown first and the <strong>Table / Visual</strong> toggle switches to the table. To keep the number of requests to Labelary low, typing never triggers a render. The image is refreshed once when the page or a print mode is opened, whenever you move on to the next field (click or tab into another input, change a dropdown, a date or a checkbox), and when you click the image itself. Until then the old image is dimmed with the note <em>Content changed. Click to render</em>. Use ‹ › to step through the labels (each step renders that label). The image is rendered by the third-party service labelary.com; the label code, including the values printed on it, is sent there for every render. The rendered preview is therefore <strong>off until you switch it on</strong>: the hint in the preview section (or Settings, General) asks once whether label content may be sent to labelary.com, and only after you agree are images rendered. It can be switched off again at any time. The table preview always works and sends nothing.</p>
+<p>A yellow warning appears when a template placeholder has no value, for example <em>${BATCH_ID} (empty in 3 of 25)</em>. Fix the data or the mapping before printing. More than 100 labels are sent in several requests automatically; a red note appears when a job has more than 1,000 labels, which is more than one job may print.</p>
 <h3>3.6 Printing</h3>
-<p>Select template and printer, check the preview, click <strong>Print</strong>. The button shows the number of labels. The result is shown below the button and written to the audit log, also when the print fails.
-Jobs with more than 500 labels ask for confirmation first, to catch a typo in a number of labels or a Copies cell. Large jobs are sent in chunks of 100. If a later chunk fails (for example the printer goes offline), the message says how many labels were already printed, so you only print the rest again.</p>
+<p>Select template and printer, check the preview, click <strong>Print</strong>. The button shows the number of labels. The result is shown below the button and written to the audit log, also when the print fails.</p>
+<p>A label counts as printed only when the printer confirms it: the print service reports a result per label, and labels reported with an error (for example <em>labels are empty or jammed</em>, <em>the printer lid is open</em>) or not confirmed in time are listed by number. The message says which labels were printed and which to print again, for example <em>2 of 5 labels printed (labels 1-2); print only labels 3-5 again</em>, and the audit log shows the job as <em>Partly</em>. A local print server that does not report per label is accepted, and the message says that the labels were not confirmed one by one.</p>
+<p>Limits, checked before anything is sent:
+- Jobs with more than 500 labels ask for confirmation, to catch a typo in a number of labels or a Copies cell.
+- One job prints at most 1,000 labels; split bigger jobs.
+- A label template may ask for 1 to 10 copies per label (<code>^PQ</code>), the limit of the print service.
+- Large jobs are sent in several requests of at most 100 labels and 100 copies. If a request fails, the following ones are not sent and the message lists the labels to print again.
+- A value used inside a ZPL command of the template (for example <code>^PQ${COPIES}</code>) may not contain <code>^</code>, <code>~</code> or a line break; such a job is refused instead of printing something else. Values in text fields may contain any character: <code>^</code>, <code>~</code> and <code>\</code> are printed literally (the app adds <code>^FH</code> and hex escapes, and respects an <code>^FH</code> indicator that the template already sets).</p>
 <p>Values are printed exactly as entered: characters that ZPL would treat as commands (<code>^</code>, <code>~</code>, <code>\</code>) are escaped automatically, so a value like <code>A^B</code> prints as <code>A^B</code>.</p>
-<p><strong>Save as PDF</strong> renders the same labels through Labelary and downloads <code>fluics-print-studio-labels-&lt;date_time&gt;.pdf</code> with one label per page, at the template's label size. Use it when no printer is connected (the hint next to the buttons says so when no API key is stored), to print on an office printer, or to archive a job. The visual preview must be enabled: if it is off, the button is disabled and a note links to Settings, General. PDF exports are written to the audit log with <em>PDF file</em> as printer.</p>
+<p><strong>Save as PDF</strong> renders the same labels through Labelary and downloads <code>fluics-print-studio-labels-&lt;date_time&gt;.pdf</code> with one label per page, at the template's label size. Use it when no printer is connected (the hint next to the buttons says so when no API key is stored), to print on an office printer, or to archive a job. The rendered preview must be switched on (see 3.5): if it is off, the button is disabled and a note offers to switch it on. PDF exports are written to the audit log with <em>PDF file</em> as printer.</p>
 <table>
 <thead>
 <tr>
@@ -762,9 +769,9 @@ Jobs with more than 500 labels ask for confirmation first, to catch a typo in a 
 <ul>
 <li><strong>Date format</strong>: how every date placeholder is printed, in all print modes (for example 2026-04-21, 21.04.2026, 21Apr26).</li>
 <li><strong>Label dimensions</strong>: whether label width and height are shown and entered in inches or millimetres in the template editor. Templates are stored in inches internally, switching the unit converts the display.</li>
-<li><strong>Preview</strong>: switches the Labelary rendering on or off (see 3.5).</li>
+<li><strong>Preview</strong>: switches the Labelary rendering on or off (see 3.5). It is off by default and asks once before label content is sent to labelary.com.</li>
 <li><strong>Reset</strong>: <strong>Reset app to factory defaults</strong> removes everything stored in this browser (settings, API key, templates, bundles, entered values, audit log) and starts again with the demo setup. Export first if you want to keep anything. The same effect: delete the site's data in the browser settings (iPhone: Settings, Safari, Advanced, Website Data; Android Chrome: site settings, Clear and reset).</li>
-<li><strong>Configuration file</strong>: <strong>Export</strong> downloads the complete setup (templates, placeholders, bundles, printer names, settings including the API key, audit log) as a JSON file; <strong>Import</strong> restores it. The selected printer is not part of the file: printers are loaded live from the API whenever the app is used. Rows for placeholders that exist in none of your templates, and rows that still have their default value, are dropped automatically; the <code>variables</code> block only names the placeholders with a role (date, counter) and a few legacy names. Use export to back up your setup, to move it to another computer, or to send it to FLUICS support. The file name contains the app version and the local date and time down to the second (<code>fluics-print-studio-config-v10-2026-09-25_14-05-33.json</code>), so repeated exports never overwrite each other. Importing replaces everything in the browser, including the audit log, so export the current state first if you want to keep it. The app asks before importing and refuses files that are not a PRINT Studio configuration; if an import fails, the previous configuration is kept.</li>
+<li><strong>Configuration file</strong>: <strong>Export</strong> downloads the setup (templates, placeholders, bundles, printer names, settings) as a JSON file to share with colleagues or FLUICS support; it contains <strong>no API key and no audit log</strong>. <strong>Private backup</strong> downloads the same plus the API key and the audit log with the printed label content, to move to another computer; its file name starts with <code>fluics-print-studio-PRIVATE-backup</code>, keep it to yourself. <strong>Import</strong> restores either file; a file without API key or audit log keeps the ones already in this browser, and ids that are not plain letters, digits, <code>-</code> or <code>_</code> make the import stop. The selected printer is not part of the file: printers are loaded live from the API whenever the app is used. Rows for placeholders that exist in none of your templates, and rows that still have their default value, are dropped automatically; the <code>variables</code> block only names the placeholders with a role (date, counter) and a few legacy names. Use <strong>Export</strong> to share the setup or send it to FLUICS support, <strong>Private backup</strong> to move it to another computer. The file name contains the app version and the local date and time down to the second (<code>fluics-print-studio-config-v11-2026-10-13_14-05-33.json</code>), so repeated exports never overwrite each other. Importing a private backup replaces everything in the browser, including the audit log, so make a backup of the current state first if you want to keep it. The app asks before importing and refuses files that are not a PRINT Studio configuration; if an import fails, the previous configuration is kept.</li>
 </ul>
 <h3>4.2 Connect printer</h3>
 <p>API key and base URL of the FLUICS PRINT API; <strong>Save and load printers</strong> stores them and fetches the printer list. Below, give each printer a friendly name (for example Laboratory, Office). The name is used in the printer dropdown and in the audit log.</p>
@@ -774,11 +781,20 @@ Jobs with more than 500 labels ask for confirmation first, to catch a typo in a 
 <h3>4.4 Notes</h3>
 <p>A free-text field for ideas and reminders, stored with the configuration.</p>
 <h3>4.5 Audit Log</h3>
-<p>Every print attempt is recorded with timestamp (local time with UTC offset), printer, template, mode (Batch, Bundle or Paste), bundle name or data source (file name, Clipboard or Manual entry), number of labels, result, error text, app version and the full ZPL of every label. <strong>Export CSV</strong> downloads the log, <strong>Clear</strong> deletes it after confirmation. The log keeps the most recent 500 entries. It is stored <strong>only in this browser on this device, not on the print server</strong>: other devices and browsers keep their own log, and clearing the browser data deletes it. Export it regularly if you need it for documentation. Browsers limit the storage per site (typically about 5 MB); when it is full, the label details (ZPL) of the oldest entries are removed first and a note tells you so.</p>
+<p>Every print attempt is recorded with timestamp (local time with UTC offset), printer, template, mode (Batch, Bundle or Paste), bundle name or data source (file name, Clipboard or Manual entry), number of labels, result (<em>OK</em>, <em>Partly</em> or <em>Error</em>), error text, app version and the full ZPL of every label. <strong>Export CSV</strong> downloads the log, <strong>Clear</strong> deletes it after confirmation. The log keeps the most recent 500 entries. It is stored <strong>only in this browser on this device, not on the print server</strong>: other devices and browsers keep their own log, and clearing the browser data deletes it. Export it regularly if you need it for documentation. Browsers limit the storage per site (typically about 5 MB); when it is full, the label details (ZPL) of the oldest entries are removed first and a note tells you so.</p>
 <h3>5. Where the data lives</h3>
 <p>The audit log and the pasted data are stored in the browser's local storage for this file location. Opening the same HTML file from a different folder or in a different browser starts with an empty configuration: use export and import to carry it over.</p>
 <h3>6. Versions and updates</h3>
-<p>Every release is a separate file (<code>PRINT Studio v06.html</code> for version 0.6, <code>PRINT Studio v10.html</code> for version 1.0, and so on) with a matching example configuration (<code>PRINT STUDIO config v10.json</code>). The version is shown in the footer and is written into every exported configuration (<code>appVersion</code>) and into every audit entry. Newer versions read configurations exported from older versions; the settings are converted automatically on import. To update: export your configuration in the old version, open the new file, import the configuration. If both files are opened from the same folder in the same browser, they share the stored settings, so the new version picks them up without an import.</p>
+<p>Releases are published in the GitHub repository <a target="_blank" class="text-blue-600 underline" href="https://github.com/FLUICS-com/print-studio">FLUICS-com/print-studio</a>, each as a tag (<code>v1.0</code>, <code>v1.1</code>, …) with the app (<code>index.html</code>), this manual and an example configuration. The version is shown in the footer and is written into every exported configuration (<code>appVersion</code>) and into every audit entry. Newer versions read configurations exported from older versions; the settings are converted automatically on import. To update: export your configuration in the old version, open the new file, import the configuration. If both files are opened from the same folder in the same browser, they share the stored settings, so the new version picks them up without an import.</p>
+<p><strong>Version 1.1</strong> (October 2026), safety release after an external review:</p>
+<ul>
+<li>A label counts as printed only when the printer confirms it; failed labels are listed by number and the audit log marks the job as <em>Partly</em>.</li>
+<li>Copies are checked before sending: 1 to 10 per label (<code>^PQ</code>), at most 1,000 labels per job, requests of at most 100 copies.</li>
+<li>Values are escaped per ZPL field, respecting an <code>^FH</code> indicator in the template; values with <code>^</code> or <code>~</code> inside a ZPL command are refused.</li>
+<li>The Labelary preview is off until you agree to send label content to labelary.com.</li>
+<li><strong>Export</strong> no longer contains the API key or the audit log; <strong>Private backup</strong> does.</li>
+<li>Configuration files can no longer run code in the app (ids are checked, generated buttons carry no code); the Excel reader is updated to SheetJS 0.20.3.</li>
+</ul>
 <p><strong>Version 1.0</strong> (September 2026), the first release:</p>
 <ul>
 <li>Four print modes in the top bar: Single Print, Paste to Print (Excel and CSV import or manual entry with column-to-placeholder mapping, cell editing and fill-down), Batch Print (placeholder rows with text, date or counter values) and Label Bundles (sets of label types × count with shared values and numbering per type).</li>
@@ -821,7 +837,7 @@ Jobs with more than 500 labels ask for confirmation first, to catch a typo in a 
 <li><strong>Pasted text lands in one column</strong>: the data was copied as plain text without tabs. Copy the cells directly from Excel, or save as CSV and upload.</li>
 <li><strong>Numbers or dates look different than in Excel</strong>: Excel cell formatting is not transferred. Dates are read as real dates and printed in the configured date format; formatted numbers (for example 1.000,5) are read as plain numbers.</li>
 <li><strong>Excel file does not load</strong>: the Excel reader is loaded from the internet on first use. Without connection, save the sheet as CSV or paste the cells instead.</li>
-<li><strong>No image in the preview</strong>: the preview is disabled under Settings, General, the internet connection is blocked, or Labelary's rate limit was reached (the preview then says so; wait a moment and click the label image again). Label sizes entered in millimetres are converted to inches for Labelary automatically.</li>
+<li><strong>No image in the preview</strong>: the rendered preview is off (the default; switch it on from the hint in the preview section), the internet connection is blocked, or Labelary's rate limit was reached (the preview then says so; wait a moment and click the label image again). Label sizes entered in millimetres are converted to inches for Labelary automatically.</li>
 <li><strong>Camera icon does nothing</strong>: barcode scanning needs HTTPS (or localhost) and camera permission.</li>
 <li><strong>Configuration disappeared</strong>: the browser's site data was cleared, or the file was opened from a different location. Import your last export.</li>
 </ul>
@@ -908,6 +924,13 @@ Jobs with more than 500 labels ask for confirmation first, to catch a typo in a 
  *     migration step: customers import configs exported from old versions.
  *
  * Changelog:
+ *   v11  Version 1.1, safety release after an external review: per-label
+ *        print results (labels[].status), copies checked (^PQ 1..10, 1,000 per
+ *        job, requests of at most 100 copies), ZPL values escaped per field
+ *        with the template's ^FH indicator and refused inside commands,
+ *        Labelary opt-in with consent, shareable export without API key and
+ *        audit log plus a private backup, no code in generated handlers
+ *        (uiOn), config ids checked, SheetJS 0.20.3.
  *   v10  Version 1.0, first release. Feature set of the final v06 state (see
  *        below) plus a review pass: values are ZPL-escaped (^FH), bundle rows
  *        and row kinds survive reloads, partial prints are reported, jobs over
@@ -1041,7 +1064,7 @@ Jobs with more than 500 labels ask for confirmation first, to catch a typo in a 
 // ── State ──────────────────────────────────────────────────────────────────────
 
 /** App version. Bump together with the release tag (vX.Y). */
-const APP_VERSION = '1.0';
+const APP_VERSION = '1.1';
 
 /**
  * Public links shown in the footer and the manual. Fill in before release;
@@ -1069,6 +1092,17 @@ function onPrinterChange(lid) {
 
 /** Jobs above this size ask for confirmation before printing. */
 const LARGE_JOB = 500;
+// Limits of the FLUICS PRINT API batchprint endpoint (fluics-printingapi,
+// print_api_neo.py): ^PQ at most 10 per label, at most 100 copies per request,
+// label ids at most 50 characters. MAX_JOB_COPIES is this app's own ceiling
+// for one print job, so a wrong copies value cannot empty a label roll.
+const PQ_MAX_PER_LABEL = 10;
+const COPIES_PER_REQUEST = 100;
+const MAX_JOB_COPIES = 1000;
+const PRINTER_STATUS_TEXT = {
+  '01': 'labels are empty or jammed', '02': 'labels are empty or jammed', '03': 'the ribbon is empty or jammed',
+  '04': 'the printer lid is open', '50': 'the printer is busy',
+};
 
 /** Valid print modes, in the order of the top bar. */
 const PRINT_MODES = ['single', 'paste', 'batch', 'bundle'];
@@ -1089,7 +1123,7 @@ const DEFAULTS = {
   "settings": {
     "apiKey": "",
     "baseUrl": "https://print-api.fluics.com/latest",
-    "labelaryEnabled": true,
+    "labelaryEnabled": false,
     "dateFormat": "DDMonYY",
     "unit": "mm"
   },
@@ -1577,12 +1611,13 @@ function loadState({ strict = false } = {}) {
     } else {
       s.lastUsed.paste = null;
     }
-    delete s.appVersion; delete s.exportedAt; // written by exportState(), informational only
+    delete s.appVersion; delete s.exportedAt; delete s.exportKind; // written by exportState(), informational only
     // v06: date format and dimension unit are global settings (General section).
     // Older configs kept the format on the date variable.
     if (!s.settings) s.settings = JSON.parse(JSON.stringify(DEFAULTS.settings));
     if (!s.settings.dateFormat) s.settings.dateFormat = legacyDateFormat || 'YYYY-MM-DD';
     if (!['in', 'mm'].includes(s.settings.unit)) s.settings.unit = 'in';
+    if (!s.settings.baseUrl) s.settings.baseUrl = DEFAULTS.settings.baseUrl;
     // v06: Batch Print is a list of placeholder rows. Seed it once from the old form values.
     if (!s.lastUsed.batch || typeof s.lastUsed.batch !== 'object') {
       const vi = s.lastUsed.varInputs || {};
@@ -1887,6 +1922,7 @@ function labelaryUrl(dpmm, wIn, hIn, index) {
  * @returns {Promise<Blob>}
  */
 async function labelaryFetch(url, zpl, accept = 'image/png') {
+  if (!labelaryOn()) throw new Error('The label preview (Labelary) is switched off');
   for (let attempt = 0; attempt < 2; attempt++) {
     const res = await fetch(url, { method: 'POST', headers: { 'Accept': accept, 'Content-Type': 'application/x-www-form-urlencoded' }, body: zpl });
     if (res.ok) return res.blob();
@@ -1934,7 +1970,7 @@ function renderGeneral() {
   const df = document.getElementById('settings-date-format');
   df.innerHTML = DATE_FORMATS.map(f => `<option value="${f.id}" ${dateFmt() === f.id ? 'selected' : ''}>${esc(f.label)}</option>`).join('');
   document.getElementById('settings-unit').value = S.settings.unit || 'in';
-  document.getElementById('settings-labelary-enabled').checked = S.settings.labelaryEnabled !== false;
+  document.getElementById('settings-labelary-enabled').checked = labelaryOn();
 }
 
 /** Date format changed in General: applies to every date placeholder. */
@@ -1964,8 +2000,7 @@ function saveNotes() {
 function openSettings(section) {
   document.getElementById('settings-api-key').value            = S.settings.apiKey;
   document.getElementById('settings-base-url').value           = S.settings.baseUrl;
-  // Default labelaryEnabled to true if the field is absent (old saves).
-  document.getElementById('settings-labelary-enabled').checked = S.settings.labelaryEnabled !== false;
+  document.getElementById('settings-labelary-enabled').checked = labelaryOn();
   document.getElementById('connect-status').textContent = '';
   document.getElementById('settings-modal').classList.remove('hidden');
   showSection(section || 'general');
@@ -2004,9 +2039,36 @@ async function saveConnection() {
     : 'No printers found for this key.';
 }
 
-/** Labelary toggle in Configure: persist immediately and re-apply the preview layout. */
+/**
+ * Labelary (labelary.com) is an external service: the preview and the PDF send
+ * the label's ZPL, including the values printed on it, to its servers. It is
+ * off until the user agrees once (labelaryConsent); installs from before this
+ * rule start switched off too, whatever labelaryEnabled said.
+ */
+function labelaryOn() {
+  return S.settings.labelaryEnabled === true && S.settings.labelaryConsent === true;
+}
+const LABELARY_CONSENT_TEXT = 'Rendered previews and PDFs are made by Labelary (labelary.com), an external service. '
+  + 'For every preview the label code, including the values printed on it, is sent to labelary.com.\n\n'
+  + 'Switch on the rendered preview?';
+
+/** Turns the rendered preview on after asking once. Returns whether it is on. */
+function enableLabelary() {
+  if (!S.settings.labelaryConsent && !confirm(LABELARY_CONSENT_TEXT)) return false;
+  S.settings.labelaryConsent = true;
+  S.settings.labelaryEnabled = true;
+  save();
+  applyLabelarySetting();
+  return true;
+}
+
+/** Labelary toggle in Settings, General: asks for consent the first time, then persists and re-applies the layout. */
 function onLabelaryToggle(checked) {
-  S.settings.labelaryEnabled = checked;
+  if (checked) {
+    if (!enableLabelary()) document.getElementById('settings-labelary-enabled').checked = false;
+    return;
+  }
+  S.settings.labelaryEnabled = false;
   save();
   applyLabelarySetting();
 }
@@ -2029,23 +2091,32 @@ function closeHelp() { document.getElementById('help-modal').classList.add('hidd
  * notes, audit log) as a formatted JSON file for transfer to another machine.
  * The audit log is placed last in the JSON for readability.
  */
-function exportState() {
-  // Export a cleaned copy: the API key stays (it identifies the subscription),
-  // but the connected printer is a live selection that is loaded from the API
-  // when the app is used, so no printer ids are written. Legacy seed values
-  // and rows for vanished placeholders are dropped as well.
+/**
+ * Export the setup as a JSON file.
+ * 'share' (default): no API key, no audit log (it holds the printed label
+ * content), no Labelary consent, so the file can go to colleagues or support.
+ * 'backup': everything, for moving to another computer; the file name says it
+ * is private. In both, the connected printer is a live selection loaded from
+ * the API, so no printer ids are written; legacy seed values and rows for
+ * vanished placeholders are dropped.
+ * @param {'share'|'backup'} [kind]
+ */
+function exportState(kind = 'share') {
   const copy = JSON.parse(JSON.stringify(S));
   pruneStaleRows(copy);
   delete copy.lastUsed.printer;
   delete copy.lastUsed.varInputs;
   Object.values(copy.lastUsed.byMode || {}).forEach(m => delete m.printer);
+  delete copy.settings.labelaryConsent;   // consent belongs to the person, not the file
+  const backup = kind === 'backup';
+  if (!backup) copy.settings.apiKey = '';
   const { auditLog, ...rest } = copy;
-  const ordered = { appVersion: APP_VERSION, exportedAt: new Date().toISOString(), ...rest, auditLog };
+  const ordered = { appVersion: APP_VERSION, exportedAt: new Date().toISOString(), exportKind: backup ? 'backup' : 'share', ...rest, ...(backup ? { auditLog } : {}) };
   const blob = new Blob([JSON.stringify(ordered, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `fluics-print-studio-config-v${APP_VERSION.replace('.', '')}-${fileStamp()}.json`;
+  a.download = `fluics-print-studio-${backup ? 'PRIVATE-backup' : 'config'}-v${APP_VERSION.replace('.', '')}-${fileStamp()}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -2095,7 +2166,14 @@ function importState(file) {
       alert(`This configuration contains an invalid id ("${badId.slice(0, 40)}"). Nothing was changed.`);
       return;
     }
-    if (!confirm(`Import "${file.name}"? It replaces the templates, bundles, settings and audit log stored in this browser.`)) return;
+    if (!confirm(`Import "${file.name}"? It replaces the templates, bundles and settings stored in this browser${Array.isArray(imported.auditLog) ? ' and the audit log' : ''}.`)) return;
+    // A shared export has no API key and no audit log: keep this browser's.
+    // Labelary consent is never taken from a file.
+    imported.settings = imported.settings && typeof imported.settings === 'object' ? imported.settings : JSON.parse(JSON.stringify(S.settings));
+    if (!imported.settings.apiKey) imported.settings.apiKey = S.settings.apiKey || '';
+    if (!Array.isArray(imported.auditLog)) imported.auditLog = S.auditLog || [];
+    imported.settings.labelaryConsent = S.settings.labelaryConsent === true;
+    if (!imported.settings.labelaryConsent) imported.settings.labelaryEnabled = false;
     const previous = localStorage.getItem('lr_state');
     try {
       localStorage.setItem('lr_state', JSON.stringify(imported));
@@ -2759,31 +2837,59 @@ function buildLabels() {
  * Perform ${TOKEN} substitution on a ZPL template string.
  * Unrecognised tokens are replaced with an empty string rather than left as-is,
  * so the printer never receives a literal "${…}" on the label.
- * @param {string} zpl  - Raw ZPL template containing ${TOKEN} placeholders.
- * @param {object} vars - Token→value map produced by buildLabels().
+ *
+ * Values are data, not ZPL. The template is walked field by field: field data
+ * runs from ^FD (or ^FV) to the next ^FS, everything else is command text.
+ * - In field data, a value with ^ or ~ would be executed by the printer. Such
+ *   a field gets ^FH\ and the characters are written as hex escapes (\5E ^,
+ *   \7E ~, \5C \). If the template already sets ^FH for the field, its own
+ *   indicator is used (default _) and values that contain the indicator are
+ *   escaped too, so they cannot start a hex sequence.
+ * - In command text (e.g. ^PQ${COPIES} or ^FO${X},10) hex escapes do not work.
+ *   ^, ~ and line breaks are removed there and reported in `issues`, so the
+ *   print is refused instead of printing something else.
+ * @param {string} zpl    - Raw ZPL template containing ${TOKEN} placeholders.
+ * @param {object} vars   - Token→value map produced by buildLabels().
+ * @param {string[]} [issues] - Receives a message for every value that was not safe in a command.
  * @returns {string} ZPL with all placeholders replaced.
  */
-function subst(zpl, vars) {
-  // Values are data, not ZPL. A ^ or ~ inside a value (from Excel, a scanner,
-  // a typo) would otherwise be executed by the printer as a command. Fields
-  // that receive such a value get ^FH\ in front of their ^FD, and the
-  // characters are written as hex escapes (\5E ^, \7E ~, \5C \), which the
-  // printer prints literally. Fields without such characters stay untouched.
+function subst(zpl, vars, issues) {
   const val = k => String(vars[k] ?? '');
-  const risky = v => /[\\^~]/.test(v);
-  const hex = v => v.replace(/[\\^~]/g, c => '\\' + c.charCodeAt(0).toString(16).toUpperCase());
-  const upper = zpl.toUpperCase();
-  const fieldOf = offset => upper.lastIndexOf('^FD', offset);
-  const needFH = new Set();
-  for (const m of zpl.matchAll(/\$\{(\w+)\}/g)) if (risky(val(m[1]))) needFH.add(fieldOf(m.index));
-  needFH.delete(-1);
-  return zpl.replace(/\^FD|\$\{(\w+)\}/gi, (m, k, offset) => {
-    if (k === undefined) {
-      const hasFH = /\^FH.?$/i.test(zpl.slice(Math.max(0, offset - 4), offset));
-      return needFH.has(offset) && !hasFH ? '^FH\\' + m : m;
-    }
-    return needFH.has(fieldOf(offset)) ? hex(val(k)) : val(k);
+  const reChar = c => c.replace(/[\\^$.*+?()[\]{}|\/-]/g, '\\$&');
+  const hexify = (v, ind) => v.replace(new RegExp('[' + ['^', '~', ind].map(reChar).join('') + ']', 'g'),
+    c => ind + c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0'));
+  const inCommand = text => text.replace(/\$\{(\w+)\}/g, (m, k) => {
+    const v = val(k);
+    if (!/[\^~\r\n]/.test(v)) return v;
+    if (issues) issues.push(`the value "${v.slice(0, 40)}" of \${${k}} is used inside a ZPL command of the template, where ^, ~ and line breaks are not allowed.`);
+    return v.replace(/[\^~\r\n]/g, '');
   });
+  const upper = zpl.toUpperCase();
+  const fieldStart = /\^F[DV]/gi;
+  let out = '', pos = 0, m;
+  while ((m = fieldStart.exec(zpl))) {
+    const cmd = zpl.slice(pos, m.index);
+    const fs = upper.indexOf('^FS', m.index + 3);
+    const end = fs < 0 ? zpl.length : fs;
+    const data = zpl.slice(m.index + 3, end);
+    // ^FH set in this field's commands (after the previous ^FS); no character after it means the default _.
+    const fh = [...cmd.matchAll(/\^FH(.?)/gi)].pop();
+    let ind = fh ? (fh[1] && fh[1] !== '^' && fh[1] !== '~' ? fh[1] : '_') : null;
+    let prefix = '', fixStatic = t => t;
+    const hasRisky = [...data.matchAll(/\$\{(\w+)\}/g)].some(t => /[\^~]/.test(val(t[1])));
+    if (!ind && hasRisky) {
+      ind = '\\'; prefix = '^FH\\';
+      fixStatic = t => t.replace(/\\/g, '\\5C');   // the template's own backslashes stay literal
+    }
+    const body = data.split(/(\$\{\w+\})/).map(part => {
+      const t = /^\$\{(\w+)\}$/.exec(part);
+      return t ? (ind ? hexify(val(t[1]), ind) : val(t[1])) : fixStatic(part);
+    }).join('');
+    out += inCommand(cmd) + prefix + m[0] + body;
+    pos = end;
+    fieldStart.lastIndex = end;
+  }
+  return out + inCommand(zpl.slice(pos));
 }
 
 /**
@@ -2857,9 +2963,12 @@ function refreshPreview() {
     }
   }
 
-  // The API accepts at most 100 labels per request; batches larger than that
-  // are split automatically in printLabels() and a warning is shown here.
-  const warn = count > 100 ? `<tr><td colspan="${usedKeys.length+1}" class="px-3 py-2 text-center text-amber-600 text-xs bg-amber-50">⚠ More than 100 labels: they are sent in chunks of 100</td></tr>` : '';
+  // The API accepts at most 100 labels (and 100 copies) per request; bigger jobs
+  // are split automatically in printLabels(), which also refuses jobs over
+  // MAX_JOB_COPIES. The preview says so before printing.
+  const warn = count > MAX_JOB_COPIES
+    ? `<tr><td colspan="${usedKeys.length+1}" class="px-3 py-2 text-center text-red-600 text-xs bg-red-50">⚠ More than ${MAX_JOB_COPIES} labels: too many for one print job. Check the copies and counters, or print in smaller parts.</td></tr>`
+    : count > 100 ? `<tr><td colspan="${usedKeys.length+1}" class="px-3 py-2 text-center text-amber-600 text-xs bg-amber-50">⚠ More than 100 labels: they are sent in several requests</td></tr>` : '';
   tbody.innerHTML = warn + labels.map((l, i) =>
     `<tr class="${i % 2 ? 'bg-gray-50' : ''}">
       <td class="px-3 py-1.5 text-gray-400">${i+1}</td>
@@ -2875,7 +2984,7 @@ function syncPrintButton(count) {
   if (!btn) return;
   const n = count === undefined ? buildLabels().length : count;
   const hasKey = !!S.settings.apiKey;
-  const labelary = S.settings.labelaryEnabled !== false;
+  const labelary = labelaryOn();
   document.getElementById('no-printer-hint')?.classList.toggle('hidden', hasKey);
   // Without a key the printer dropdown cannot be filled: show the link to the settings instead.
   document.getElementById('printer-picker')?.classList.toggle('hidden', !hasKey);
@@ -2889,10 +2998,46 @@ function syncPrintButton(count) {
                   : `Print ${noun}`;
 }
 
+/** Copies one label prints: the first number of its last ^PQ (default 1). */
+function labelCopies(zpl) {
+  let n = 1;
+  for (const m of zpl.matchAll(/\^PQ\s*(\d+)/gi)) n = Number(m[1]);
+  return n;
+}
+/** Copies as the print API counts them for its limits (int() of everything after the last ^PQ, else 1). */
+function apiCopies(zpl) {
+  let n = 1;
+  for (const part of zpl.split('^')) if (part.startsWith('PQ')) n = /^\s*[+-]?\d+\s*$/.test(part.slice(2)) ? Number(part.slice(2)) : 1;
+  return n;
+}
+/** Splits the payload into requests of at most 100 labels and 100 counted copies. */
+function printChunks(payload) {
+  const chunks = [];
+  let cur = [], copies = 0;
+  for (const p of payload) {
+    const c = Math.max(1, apiCopies(p.data));
+    if (cur.length && (cur.length >= 100 || copies + c > COPIES_PER_REQUEST)) { chunks.push(cur); cur = []; copies = 0; }
+    cur.push(p); copies += c;
+  }
+  if (cur.length) chunks.push(cur);
+  return chunks;
+}
+/** "1-3, 7" for the 0-based label positions given. */
+function labelRanges(idx) {
+  const out = [];
+  for (let i = 0; i < idx.length; i++) {
+    let j = i; while (j + 1 < idx.length && idx[j + 1] === idx[j] + 1) j++;
+    out.push(i === j ? `${idx[i] + 1}` : `${idx[i] + 1}-${idx[j] + 1}`); i = j;
+  }
+  return out.join(', ');
+}
+
 /**
  * Send all generated labels to the selected printer via the FLUICS Print API.
- * Labels are split into chunks of 100 (API limit) and sent sequentially.
- * Writes an audit log entry on both success and failure.
+ * Requests hold at most 100 labels and 100 copies (API limits) and are sent one
+ * after the other. HTTP 200 alone does not mean printed: the API answers 200
+ * with labels[].status per label (OK, error, TIMEOUT), so only labels reported
+ * OK count as printed. Writes an audit log entry on success and failure.
  */
 async function printLabels() {
   const labels = buildLabels();
@@ -2901,7 +3046,18 @@ async function printLabels() {
   if (!lid) return setStatus('Select a printer.', 'error');
   const tmpl = S.templates.find(t => t.id === document.getElementById('template-select').value);
   if (!tmpl) return setStatus('Select a template.', 'error');
-  if (labels.length > LARGE_JOB && !confirm(`Print ${labels.length} labels? Check the preview if this is more than you expected.`)) return;
+
+  // Build the ZPL first: copies per label (^PQ) and values in command
+  // parameters are checked before anything is sent.
+  const zplIssues = [];
+  const payload = labels.map(l => ({ id: uid(), data: subst(tmpl.zpl, l, zplIssues) }));
+  if (zplIssues.length) return setStatus(`Not printed: ${zplIssues[0]}`, 'error');
+  const copies = payload.map(p => labelCopies(p.data));
+  const total = copies.reduce((a, b) => a + b, 0);
+  const tooMany = copies.findIndex(c => c > PQ_MAX_PER_LABEL || c < 1);
+  if (tooMany >= 0) return setStatus(`Not printed: label ${tooMany + 1} asks for ${copies[tooMany]} copies (^PQ). The printer accepts 1 to ${PQ_MAX_PER_LABEL} copies per label.`, 'error');
+  if (total > MAX_JOB_COPIES) return setStatus(`Not printed: this job would print ${total} labels, more than ${MAX_JOB_COPIES} at once. Check the copies and counters, or print in smaller parts.`, 'error');
+  if (total > LARGE_JOB && !confirm(`Print ${total} labels? Check the preview if this is more than you expected.`)) return;
 
   const btn = document.getElementById('print-btn');
   btn.disabled = true;
@@ -2914,27 +3070,39 @@ async function printLabels() {
   modeSel().template = S.lastUsed.template;
   save();
 
-  // Build payload and audit fields before the try so both are accessible in catch.
   // Note: the FLUICS API does NOT want ^XA/^XZ wrappers: it adds them itself.
-  const payload        = labels.map(l => ({ id: uid(), data: subst(tmpl.zpl, l) }));
   const auditTmplName  = tmpl.name;
   const auditGroupName = printMode === 'bundle' ? (currentBundle()?.name || '') : '';
   const auditSource    = printMode === 'paste' ? (pasteState().source || '') : '';
   const auditBase = { count: labels.length, lid, tmplName: auditTmplName, groupName: auditGroupName, mode: printMode, source: auditSource, zpl: payload.map(p => p.data) };
 
-  // Chunks of 100 are sent one after the other. If a later chunk fails, the
-  // earlier ones are already printed: the message and the audit entry say how
-  // many, so the user does not print them twice.
-  let sent = 0, error = null;
+  // Requests go out one after the other and stop at the first problem, so the
+  // message can say exactly which labels printed and which to print again.
+  const index = new Map(payload.map((p, i) => [p.id, i]));
+  const okIdx = [], badIdx = [];
+  let unconfirmed = 0, error = null, problem = '';
   try {
-    for (let i = 0; i < payload.length; i += 100) {
-      const chunk = payload.slice(i, i + 100);
-      await apiFetch(`/${lid}/batchprint`, {
+    for (const chunk of printChunks(payload)) {
+      const res = await apiFetch(`/${lid}/batchprint`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(chunk)
       });
-      sent += chunk.length;
+      if (!Array.isArray(res?.labels)) {
+        // A local print server or an older API without per-label results.
+        unconfirmed += chunk.length;
+        chunk.forEach(p => okIdx.push(index.get(p.id)));
+        continue;
+      }
+      const statusOf = new Map(res.labels.map(l => [l.jobID, String(l.status || '')]));
+      chunk.forEach(p => (statusOf.get(p.id)?.toUpperCase() === 'OK' ? okIdx : badIdx).push(index.get(p.id)));
+      if (badIdx.length) {
+        const st = chunk.map(p => statusOf.get(p.id)).find(v => v && v.toUpperCase() !== 'OK') || 'no result';
+        const ps = res.printerStatus && res.printerStatus !== '00'
+          ? `, printer status ${res.printerStatus}${PRINTER_STATUS_TEXT[res.printerStatus] ? ': ' + PRINTER_STATUS_TEXT[res.printerStatus] : ''}` : '';
+        problem = `the printer reported "${st}"${ps}${res.details ? ` (${res.details})` : ''}`;
+        break;
+      }
     }
   } catch (e) {
     error = e;
@@ -2942,20 +3110,29 @@ async function printLabels() {
     btn.disabled = false;
   }
 
-  if (!error) {
-    setStatus(`✓ ${labels.length} label${labels.length !== 1 ? 's' : ''} sent successfully`, 'success');
+  const n = labels.length;
+  const notSent = payload.map((_, i) => i).filter(i => !okIdx.includes(i) && !badIdx.includes(i));
+  if (!error && !badIdx.length) {
+    const note = unconfirmed ? ' (the print server did not confirm each label)' : '';
+    setStatus(`✓ ${n} label${n !== 1 ? 's' : ''} printed${note}`, 'success');
     addAuditEntry({ ...auditBase, status: 'success' });
     return;
   }
-  // Map known HTTP status codes to user-friendly messages.
-  let msg = error.httpStatus === 408
-    ? `Printer did not respond in time, the device may be offline (${error.message})`
-    : error.httpStatus === 403 ? `Access denied, check your API key`
-    : error.httpStatus === 404 ? `Printer not found, it may no longer be linked to your API key`
-    : `Print failed: ${error.message}`;
-  if (sent) msg += `. ${sent} of ${labels.length} labels were already sent (labels 1 to ${sent}); print only the rest again.`;
+  let msg;
+  if (error) {
+    msg = error.httpStatus === 408
+      ? `Printer did not respond in time, the device may be offline (${error.message})`
+      : error.httpStatus === 403 ? `Access denied, check your API key`
+      : error.httpStatus === 404 ? `Printer not found, it may no longer be linked to your API key`
+      : `Print failed: ${error.message}`;
+  } else {
+    msg = `Print problem: ${problem}`;
+  }
+  const again = [...badIdx, ...notSent].sort((a, b) => a - b);
+  if (okIdx.length) msg += `. ${okIdx.length} of ${n} labels printed (labels ${labelRanges([...okIdx].sort((a, b) => a - b))}); print only labels ${labelRanges(again)} again.`;
+  else msg += '. No label was printed.';
   setStatus(msg, 'error');
-  addAuditEntry({ ...auditBase, status: 'error', error: msg });
+  addAuditEntry({ ...auditBase, status: okIdx.length ? 'partial' : 'error', error: msg });
 }
 
 // ── PDF output ─────────────────────────────────────────────────────────────────
@@ -2982,7 +3159,7 @@ async function saveLabelsPdf() {
   if (!labels.length) return setStatus('No labels to save.', 'error');
   const tmpl = currentTemplate();
   if (!tmpl) return setStatus('Select a template.', 'error');
-  if (S.settings.labelaryEnabled === false) return setStatus('The PDF is rendered by Labelary. Switch on the visual preview under Settings, General, first.', 'error');
+  if (!labelaryOn()) return setStatus('The PDF is rendered by Labelary. Switch on the rendered preview first (Settings, General).', 'error');
   const btn = document.getElementById('pdf-btn');
   btn.disabled = true;
   setStatus('Rendering PDF…', 'info');
@@ -3041,7 +3218,7 @@ const wideQuery = window.matchMedia('(min-width: 1024px)');
 
 /** True when the Labelary image pane is on screen: wide layout, or narrow layout in visual mode. */
 function visualVisible() {
-  if (S.settings.labelaryEnabled === false) return false;
+  if (!labelaryOn()) return false;
   return wideQuery.matches || previewMode === 'visual';
 }
 
@@ -3215,7 +3392,7 @@ async function renderLabelaryPreview() {
 let previewInitialised = false;
 
 function applyLabelarySetting() {
-  const enabled = S.settings.labelaryEnabled !== false;
+  const enabled = labelaryOn();
   const btn = document.getElementById('preview-tab-visual');
   if (btn) btn.style.display = enabled ? '' : 'none';
   // Collapse the side-by-side layout to a single column when the image pane is off.
@@ -3365,7 +3542,7 @@ function setPrinterName(lid, value) {
 function renderTemplates() {
   const el = document.getElementById('templates-list');
   if (!S.templates.length) { el.innerHTML = empty('No templates added yet'); return; }
-  const withPreview = S.settings.labelaryEnabled !== false;
+  const withPreview = labelaryOn();
   el.innerHTML = S.templates.map((t, i) =>
     `<div class="border border-gray-200 rounded-lg p-4">
       <div class="flex items-center justify-between mb-2">
@@ -3445,7 +3622,7 @@ function openEditTemplate(id) {
   editingId = id; showModal('Edit Template', tmplBody(S.templates.find(t => t.id === id))); modalAction = saveTemplate;
   updateTmplTokenHint();
   // One render when the editor opens; afterwards only when the preview box is clicked.
-  if (S.settings.labelaryEnabled !== false) setTimeout(renderTmplModalPreview, 80);
+  if (labelaryOn()) setTimeout(renderTmplModalPreview, 80);
 }
 
 /**
@@ -3456,7 +3633,7 @@ function openEditTemplate(id) {
  * @returns {string} HTML string injected into the modal body.
  */
 function tmplBody(t) {
-  const withPreview = S.settings.labelaryEnabled !== false;
+  const withPreview = labelaryOn();
   const gridStyle = withPreview
     ? 'display:grid;grid-template-columns:1fr 220px;gap:1.25rem;align-items:start'
     : '';
@@ -3605,11 +3782,11 @@ document.getElementById('modal').addEventListener('focusout', e => {
   if (e.relatedTarget?.closest?.('#m-tzpl-tokens')) return;
   setTimeout(() => {
     const open = !document.getElementById('modal').classList.contains('hidden');
-    if (open && tmplPreviewStale && S.settings.labelaryEnabled !== false) renderTmplModalPreview();
+    if (open && tmplPreviewStale && labelaryOn()) renderTmplModalPreview();
   }, 0);
 });
 document.getElementById('modal').addEventListener('change', e => {
-  if (e.target.id === 'm-tlbl-dpmm' && tmplPreviewStale && S.settings.labelaryEnabled !== false) renderTmplModalPreview();
+  if (e.target.id === 'm-tlbl-dpmm' && tmplPreviewStale && labelaryOn()) renderTmplModalPreview();
 });
 
 function closeModal() {
@@ -3767,6 +3944,8 @@ function renderAuditLog() {
             const bg = i % 2 ? 'background:#f9fafb' : '';
             const statusCell = e.status === 'success'
               ? `<td class="px-3 py-1.5" style="color:#15803d">✓ OK</td>`
+              : e.status === 'partial'
+              ? `<td class="px-3 py-1.5" style="color:#b45309" title="${esc(e.error||'')}">◐ Partly</td>`
               : `<td class="px-3 py-1.5" style="color:#b91c1c" title="${esc(e.error||'')}">✗ Error</td>`;
             const zplText = (e.zpl || []).map((z, n) => `--- Label ${n+1} ---\n^XA${z}^XZ`).join('\n\n');
             // Entries from v05 and older have no mode field: a group name means group mode, else batch.
