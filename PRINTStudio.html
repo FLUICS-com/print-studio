@@ -4904,7 +4904,6 @@ document.getElementById('footer-links').innerHTML = [
   LINKS.repo     ? `Source code and latest version: <a href="${esc(LINKS.repo)}" target="_blank" class="underline hover:text-gray-600">${esc(LINKS.repo.replace(/^https:\/\//, ''))}</a>` : '',
   LINKS.swagger  ? `<a href="${esc(LINKS.swagger)}"  target="_blank" class="underline hover:text-gray-600">FLUICS PRINT API documentation (Swagger)</a>` : '',
 ].filter(Boolean).join(' · ');
-document.title = `FLUICS PRINT Studio v${APP_VERSION}`;
 initApiKeyField();
 initPrintTab();
 applyLabelarySetting();
