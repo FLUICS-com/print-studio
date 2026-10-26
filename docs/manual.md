@@ -1,4 +1,4 @@
-# FLUICS PRINT Studio v1.2: User Manual
+# FLUICS PRINT Studio v1.3: User Manual
 
 PRINT Studio is a single HTML file that runs in your browser and sends label print jobs to FLUICS online label printers. Nothing is installed and no data is stored on a server: the configuration, the pasted data and the audit log live in your browser's local storage. Only the finished label content is sent to the printer through the FLUICS PRINT cloud API.
 
@@ -182,6 +182,10 @@ The audit log and the pasted data are stored in the browser's local storage for 
 ## 6. Versions and updates
 
 Releases are published in the GitHub repository [FLUICS-com/print-studio](https://github.com/FLUICS-com/print-studio), each as a tag (`v1.0`, `v1.1`, …) with the app (`PRINTStudio.html`), this manual and an example configuration. The version is shown in the footer and is written into every exported configuration (`appVersion`) and into every audit entry. Newer versions read configurations exported from older versions; the settings are converted automatically on import. To update: export your configuration in the old version, open the new file, import the configuration. If both files are opened from the same folder in the same browser, they share the stored settings, so the new version picks them up without an import.
+
+**Version 1.3** (October 2026):
+
+- The print range field is smaller and quieter; the Print and PDF buttons show how many labels will be printed.
 
 **Version 1.2** (October 2026):
 

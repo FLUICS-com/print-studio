@@ -131,7 +131,7 @@ const clickHandler = (name, nth = 0) => {
   const total = w.buildLabels().length;
   check('range field shown for jobs with several labels', total > 1 && !$('print-range-row').classList.contains('hidden'), total + ' labels');
   $('print-range').value = '1-5, 8'; w.syncPrintButton();
-  check('button and note follow the range', /Print 6 labels/.test($('print-btn').textContent) && /6 of \d+ labels/.test($('print-range-info').textContent), $('print-btn').textContent + ' / ' + $('print-range-info').textContent);
+  check('the buttons show the range count, no extra note', /Print 6 labels/.test($('print-btn').textContent) && $('print-range-info').textContent === '', $('print-btn').textContent + ' / ' + $('print-range-info').textContent);
   $('print-range').value = '2-' + (total + 5); w.syncPrintButton();
   check('out-of-range input is flagged and blocks printing', $('print-btn').disabled && /numbered 1 to/.test($('print-range-info').textContent), $('print-range-info').textContent);
   $('print-range').value = '1 – 3'; w.syncPrintButton();
