@@ -182,9 +182,13 @@ function loadApp() {
   const blobs = new Map();
   w.URL.createObjectURL = b => { const u = origURL.call(w.URL, b); blobs.set(u, b); return u; };
   w.URL.revokeObjectURL = () => {};
+  // A pasted table and a column assignment, to see what each export carries.
+  S.lastUsed.paste = { headers: ['Probe'], rows: [['secret sample']], mapping: ['NAME'], hasHeader: true, source: 'Clipboard' };
+  S.lastUsed.pasteMemory = { 'h:probe': 'NAME' };
   w.exportState('share'); w.exportState('backup');
   const [share, backup] = await Promise.all(files.map(f => blobs.get(f.href).text().then(JSON.parse)));
   check('shared export has no API key and no audit log', share.settings.apiKey === '' && !('auditLog' in share) && !('labelaryConsent' in share.settings));
+  check('shared export has no pasted table, the backup has it', !('paste' in share.lastUsed) && 'pasteMemory' in share.lastUsed && backup.lastUsed.paste && backup.lastUsed.paste.rows.length === 1);
   check('private backup has the key and the audit log', backup.settings.apiKey === 'test-key' && Array.isArray(backup.auditLog) && /PRIVATE-backup/.test(files[1].name));
 
   // 10. Importing a shared file keeps this browser's key and audit log.
@@ -193,6 +197,7 @@ function loadApp() {
   await wait(400);
   const S2 = w.eval('S');
   check('import of a shared file keeps the API key and audit log', S2.settings.apiKey === 'test-key' && S2.auditLog.length === auditBefore);
+  check('and keeps the pasted table of this browser', S2.lastUsed.paste && S2.lastUsed.paste.rows[0][0] === 'secret sample' && S2.lastUsed.pasteMemory['h:probe'] === 'NAME');
   check('Labelary consent stays the one of this browser', S2.settings.labelaryConsent === true);
 
   localStorage.removeItem('lr_state');

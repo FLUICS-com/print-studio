@@ -499,9 +499,9 @@
           <div class="bg-white rounded-lg border border-gray-200 p-6">
             <h2 class="text-sm font-semibold text-gray-800 mb-4">Configuration file</h2>
             <div>
-              <p class="text-xs text-gray-400 mb-2"><strong class="font-medium text-gray-600">Export</strong> saves templates, placeholders, bundles, printer names and settings to share with colleagues or FLUICS support, without the API key and the audit log. <strong class="font-medium text-gray-600">Private backup</strong> also contains the API key and the audit log with the printed label content: keep that file to yourself. Import replaces the setup; a file without API key or audit log keeps the ones in this browser.</p>
+              <p class="text-xs text-gray-400 mb-2"><strong class="font-medium text-gray-600">Export</strong> saves templates, placeholders, bundles, printer names and settings to share with colleagues or FLUICS support, without the API key, the audit log and the pasted data (column assignments are included). <strong class="font-medium text-gray-600">Private backup</strong> also contains the API key, the audit log with the printed label content and the pasted table: keep that file to yourself. Import replaces the setup; a file without API key, audit log or pasted table keeps the ones in this browser.</p>
               <div class="flex flex-wrap gap-2 max-w-md">
-                <button onclick="exportState('share')" class="btn-secondary text-xs flex-1">↓ Export</button>
+                <button onclick="exportState('share')" class="btn-secondary text-xs flex-1" title="Setup only: no API key, no audit log, no pasted data">↓ Export</button>
                 <button onclick="exportState('backup')" class="btn-secondary text-xs flex-1" title="Includes the API key and the audit log">↓ Private backup</button>
                 <label class="btn-secondary text-xs flex-1 text-center cursor-pointer">
                   ↑ Import
@@ -780,7 +780,7 @@
 <li><strong>Label dimensions</strong>: whether label width and height are shown and entered in inches or millimetres in the template editor. Templates are stored in inches internally, switching the unit converts the display.</li>
 <li><strong>Preview</strong>: switches the Labelary rendering on or off (see 3.5). It is off by default and asks once before label content is sent to labelary.com.</li>
 <li><strong>Reset</strong>: <strong>Reset app to factory defaults</strong> removes everything stored in this browser (settings, API key, templates, bundles, entered values, audit log) and starts again with the demo setup. Export first if you want to keep anything. The same effect: delete the site's data in the browser settings (iPhone: Settings, Safari, Advanced, Website Data; Android Chrome: site settings, Clear and reset).</li>
-<li><strong>Configuration file</strong>: <strong>Export</strong> downloads the setup (templates, placeholders, bundles, printer names, settings) as a JSON file to share with colleagues or FLUICS support; it contains <strong>no API key and no audit log</strong>. <strong>Private backup</strong> downloads the same plus the API key and the audit log with the printed label content, to move to another computer; its file name starts with <code>fluics-print-studio-PRIVATE-backup</code>, keep it to yourself. <strong>Import</strong> restores either file; a file without API key or audit log keeps the ones already in this browser, and ids that are not plain letters, digits, <code>-</code> or <code>_</code> make the import stop. The selected printer is not part of the file: printers are loaded live from the API whenever the app is used. Rows for placeholders that exist in none of your templates, and rows that still have their default value, are dropped automatically; the <code>variables</code> block only names the placeholders with a role (date, counter) and a few legacy names. Use <strong>Export</strong> to share the setup or send it to FLUICS support, <strong>Private backup</strong> to move it to another computer. The file name contains the app version and the local date and time down to the second (<code>fluics-print-studio-config-v11-2026-10-13_14-05-33.json</code>), so repeated exports never overwrite each other. Importing a private backup replaces everything in the browser, including the audit log, so make a backup of the current state first if you want to keep it. The app asks before importing and refuses files that are not a PRINT Studio configuration; if an import fails, the previous configuration is kept.</li>
+<li><strong>Configuration file</strong>: <strong>Export</strong> downloads the setup (templates, placeholders, bundles, printer names, settings) as a JSON file to share with colleagues or FLUICS support; it contains <strong>no API key, no audit log and no pasted data</strong> (the column assignments of Paste to Print are included). <strong>Private backup</strong> downloads the same plus the API key, the audit log with the printed label content and the pasted table, to move to another computer; its file name starts with <code>fluics-print-studio-PRIVATE-backup</code>, keep it to yourself. <strong>Import</strong> restores either file; a file without API key, audit log or pasted table keeps the ones already in this browser, and ids that are not plain letters, digits, <code>-</code> or <code>_</code> make the import stop. The selected printer is not part of the file: printers are loaded live from the API whenever the app is used. Rows for placeholders that exist in none of your templates, and rows that still have their default value, are dropped automatically; the <code>variables</code> block only names the placeholders with a role (date, counter) and a few legacy names. Use <strong>Export</strong> to share the setup or send it to FLUICS support, <strong>Private backup</strong> to move it to another computer. The file name contains the app version and the local date and time down to the second (<code>fluics-print-studio-config-v11-2026-10-13_14-05-33.json</code>), so repeated exports never overwrite each other. Importing a private backup replaces everything in the browser, including the audit log, so make a backup of the current state first if you want to keep it. The app asks before importing and refuses files that are not a PRINT Studio configuration; if an import fails, the previous configuration is kept.</li>
 </ul>
 <h3>4.2 Connect printer</h3>
 <p>API key and base URL of the FLUICS PRINT API; <strong>Save and load printers</strong> stores them and fetches the printer list. Below, give each printer a friendly name (for example Laboratory, Office). The name is used in the printer dropdown and in the audit log.</p>
@@ -803,6 +803,7 @@
 <li>Printer problems (out of labels, lid open, ribbon, busy) are now always shown; before, they were hidden when the print service had accepted the labels.</li>
 <li>Label templates are edited inside their card instead of a pop-up; <strong>Clone</strong> copies a template.</li>
 <li>Paste to Print: <strong>View original data</strong> shows what was actually pasted or uploaded.</li>
+<li><strong>Export</strong> leaves out the pasted table (column assignments stay); <strong>Private backup</strong> keeps it.</li>
 <li>Paste to Print remembers your column assignments by column name, across reloads and new pastes or uploads; switching <strong>First row contains column names</strong> keeps them, and the setting itself is remembered.</li>
 <li>New factory label templates (after <strong>Reset</strong> or on a fresh install): the text fields of Type 1 (text only), Type 4 and Type 12 print on one line instead of a text block. Your own saved templates are not changed by the update.</li>
 <li>The browser tab shows <em>FLUICS PRINT Studio</em> without the version.</li>
@@ -942,6 +943,7 @@
  *        checkbox is switched, which is remembered in pasteHasHeader), one
  *        Remove data button, View original data (P.raw, read-only, not
  *        exported), new default label templates (text fields without ^TB),
+ *        Export leaves out the pasted table (Private backup keeps it),
  *        tab title without
  *        version. Printer problems reported at the top level of a 200 answer
  *        (error / printerStatus / details) are shown; labels the printer
@@ -2152,7 +2154,8 @@ function closeHelp() { document.getElementById('help-modal').classList.add('hidd
 /**
  * Export the setup as a JSON file.
  * 'share' (default): no API key, no audit log (it holds the printed label
- * content), no Labelary consent, so the file can go to colleagues or support.
+ * content), no pasted table, no Labelary consent, so the file can go to
+ * colleagues or support.
  * 'backup': everything, for moving to another computer; the file name says it
  * is private. In both, the connected printer is a live selection loaded from
  * the API, so no printer ids are written; legacy seed values and rows for
@@ -2168,7 +2171,12 @@ function exportState(kind = 'share') {
   delete copy.settings.labelaryConsent;   // consent belongs to the person, not the file
   if (copy.lastUsed.paste) { delete copy.lastUsed.paste.raw; delete copy.lastUsed.paste.rawTotal; }  // view-only copy of the pasted data
   const backup = kind === 'backup';
-  if (!backup) copy.settings.apiKey = '';
+  if (!backup) {
+    copy.settings.apiKey = '';
+    // The pasted table is lab data, not setup: only the private backup carries
+    // it. Column memory and the header setting (pasteMemory, pasteHasHeader) stay.
+    delete copy.lastUsed.paste;
+  }
   const { auditLog, ...rest } = copy;
   const ordered = { appVersion: APP_VERSION, exportedAt: new Date().toISOString(), exportKind: backup ? 'backup' : 'share', ...rest, ...(backup ? { auditLog } : {}) };
   const blob = new Blob([JSON.stringify(ordered, null, 2)], { type: 'application/json' });
@@ -2231,6 +2239,9 @@ function importState(file) {
     imported.settings = imported.settings && typeof imported.settings === 'object' ? imported.settings : JSON.parse(JSON.stringify(S.settings));
     if (!imported.settings.apiKey) imported.settings.apiKey = S.settings.apiKey || '';
     if (!Array.isArray(imported.auditLog)) imported.auditLog = S.auditLog || [];
+    // No pasted table in the file (shared export): keep the one in this browser.
+    if (imported.lastUsed && typeof imported.lastUsed === 'object' && !imported.lastUsed.paste && S.lastUsed.paste)
+      imported.lastUsed.paste = JSON.parse(JSON.stringify(S.lastUsed.paste));
     imported.settings.labelaryConsent = S.settings.labelaryConsent === true;
     if (!imported.settings.labelaryConsent) imported.settings.labelaryEnabled = false;
     const previous = localStorage.getItem('lr_state');
