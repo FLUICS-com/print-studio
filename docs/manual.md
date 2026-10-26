@@ -56,7 +56,7 @@ Either
 
 Leave **First row contains column names** ticked when your first row is a header. Untick it if the data starts immediately; the columns are then called Column A, B, C.
 
-After loading, the box shows the source (Clipboard or file name), the number of rows and columns, and the buttons **Load other data** and **Clear**.
+After loading, the box shows the source (Clipboard or file name), the number of rows and columns, and the button **Remove data**. It deletes the table, including cells you changed, after asking, and shows the paste and upload box again: use it to start over or to load other data. Your column assignments are remembered (see below), so a sheet with the same column names is mapped the same way again.
 
 #### Section 3: Columns and rows
 

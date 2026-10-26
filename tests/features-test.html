@@ -66,6 +66,8 @@ const clickHandler = (name, nth = 0) => {
   await wait(300);
   check('spreadsheet upload keeps the choices', mapping() === '["NAME","BATCH_ID"]', mapping());
   w.clearPaste(); await wait(50);
+  check('Remove data deletes the table and shows the paste box', !(S().lastUsed.paste && S().lastUsed.paste.rows.length) && !$('paste-source-input').classList.contains('hidden') && /removed/i.test($('paste-source-status').textContent));
+  check('there is only one data button', ![...w.document.querySelectorAll('#paste-source-summary button')].some(b => /Load other/i.test(b.textContent)) && /Remove data/.test($('paste-source-summary').textContent));
   await paste('Notiz\tReagenz\nq\tE');
   check('choices survive Clear, ignored column stays ignored', mapping() === '[null,"NAME"]', mapping());
   await paste('Charge\n1');

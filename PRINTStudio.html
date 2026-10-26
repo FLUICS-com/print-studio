@@ -312,8 +312,7 @@
             <div class="text-xs text-gray-600" id="paste-source-text"></div>
             <div class="flex items-center gap-2">
               <select id="paste-sheet-select" class="field-input text-xs hidden" style="padding:0.25rem 0.5rem" onchange="onPasteSheetChange(this.value)"></select>
-              <button type="button" onclick="showPasteSourceInput()" class="btn-secondary text-xs">Load other data</button>
-              <button type="button" onclick="clearPaste()" class="btn-secondary text-xs" style="color:#dc2626">Clear</button>
+              <button type="button" onclick="clearPaste()" class="btn-secondary text-xs" style="color:#dc2626" title="Removes this table; then paste or upload new data. Column assignments are remembered.">✕ Remove data</button>
             </div>
           </div>
         </div>
@@ -691,7 +690,7 @@
 <li>click <strong>Enter manually</strong> to start with an empty table: one column per placeholder of the selected template and the number of rows you enter. Type the values directly into the grid.</li>
 </ul>
 <p>Leave <strong>First row contains column names</strong> ticked when your first row is a header. Untick it if the data starts immediately; the columns are then called Column A, B, C.</p>
-<p>After loading, the box shows the source (Clipboard or file name), the number of rows and columns, and the buttons <strong>Load other data</strong> and <strong>Clear</strong>.</p>
+<p>After loading, the box shows the source (Clipboard or file name), the number of rows and columns, and the button <strong>Remove data</strong>. It deletes the table, including cells you changed, after asking, and shows the paste and upload box again: use it to start over or to load other data. Your column assignments are remembered (see below), so a sheet with the same column names is mapped the same way again.</p>
 <h4>Section 3: Columns and rows</h4>
 <p>This is the table that will be printed. Two things happen here:</p>
 <p><strong>Column mapping.</strong> Above every column there is a dropdown listing the <strong>placeholders of the selected label template</strong>, for example <code>${PRODUCT_NAME}</code>, <code>${BATCH_ID}</code>, <code>${DATE}</code>. Pick the placeholder the column fills. Placeholders of your other templates are listed as <em>(not in selected label template)</em>. Columns whose header matches a placeholder or a variable name (in English or German, for example Produkt, Charge, Test, Datum, Name) are mapped automatically; check the result and correct it where needed. Mapped columns are shown with a blue header, ignored columns are grey. Each placeholder can be taken from one column only. <strong>Your choices are remembered</strong> by column name: when you paste or upload a sheet with the same column names again (also after reloading the page or clicking Clear, and in any column order), the columns get the same placeholders, and a column you set to <em>Ignore column</em> stays ignored. Your own choice always wins over the automatic matching. Without a header row the choices are remembered by column position. The <strong>Edit label templates</strong> link opens the template editor if a placeholder is missing.</p>
@@ -4733,22 +4732,24 @@ function onPasteHeaderToggle(checked) {
   refreshPreview();
 }
 
-/** Show the paste textarea / upload button again to replace the current data. */
-function showPasteSourceInput() {
-  document.getElementById('paste-source-input').classList.remove('hidden');
-  document.getElementById('paste-source-summary').classList.add('hidden');
-  setTimeout(() => document.getElementById('paste-input')?.focus(), 40);
-}
-
-/** Drop the working set entirely. */
+/**
+ * Remove data: the one way to get rid of the current table, also to load other
+ * data. Deletes the table (rows, cell edits) after asking; the paste and upload
+ * box then appears for new data. The column assignments stay remembered
+ * (S.lastUsed.pasteMemory), so a similar sheet is mapped the same way again.
+ */
 function clearPaste() {
-  if (pasteState().rows.length && !confirm('Clear the pasted data?')) return;
+  const P = pasteState();
+  const n = P.rows.length;
+  if (n && !confirm(`Remove the ${n} row${n !== 1 ? 's' : ''}${P.source ? ` from ${P.source}` : ''}? Then paste or upload new data. Your column assignments are remembered.`)) return;
   S.lastUsed.paste = null;
   pasteWorkbook = null;
   save();
   renderPastePane();
   clearLabelaryCache();
   refreshPreview();
+  setPasteStatus(n ? 'Data removed. Paste or upload new data.' : '');
+  setTimeout(() => document.getElementById('paste-input')?.focus(), 40);
 }
 
 /** Update one cell in place (no grid re-render, so the input keeps focus). */
