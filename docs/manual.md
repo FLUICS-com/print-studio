@@ -191,6 +191,7 @@ Releases are published in the GitHub repository [FLUICS-com/print-studio](https:
 - Label templates are edited inside their card instead of a pop-up; **Clone** copies a template.
 - Paste to Print: **View original data** shows what was actually pasted or uploaded.
 - Paste to Print remembers your column assignments by column name, across reloads and new pastes or uploads; switching **First row contains column names** keeps them, and the setting itself is remembered.
+- New factory label templates (after **Reset** or on a fresh install): the text fields of Type 1 (text only), Type 4 and Type 12 print on one line instead of a text block. Your own saved templates are not changed by the update.
 - The browser tab shows *FLUICS PRINT Studio* without the version.
 
 **Version 1.1** (October 2026), safety release after an external review:
