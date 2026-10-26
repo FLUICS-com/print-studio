@@ -81,10 +81,25 @@ function loadApp() {
   reply = chunk => ({ status: 200, body: { status: 'OK', printerStatus: '01', labels: chunk.map((l, i) => ({ jobID: l.id, status: i < 2 ? 'OK' : 'error' })) } });
   await w.printLabels();
   check('HTTP 200 with failed labels is not success', lastAudit().status === 'partial', status());
-  check('message names the labels to print again', /labels 1-2\)/.test(status()) && /labels 3-5 are entered under Labels to print/.test(status()), status());
+  check('message names the labels to print again', /labels 1-2\)/.test(status()) && /Labels 3-5 were not printed/.test(status()) && /Labels 3-5 are entered under Labels to print/.test(status()), status());
   check('the rest is entered as print range', w.document.getElementById('print-range').value === '3-5');
   w.document.getElementById('print-range').value = '';
+
   check('printer status is explained', /labels are empty or jammed/.test(status()));
+  // 2b. Printer error at the top level while every label says OK (out of labels, lid open).
+  labels = make(4);
+  reply = chunk => ({ status: 200, body: { status: 'OK', printerStatus: '04', error: '002', details: 'Printer error!', labels: chunk.map(l => ({ jobID: l.id, status: 'OK' })) } });
+  await w.printLabels();
+  check('printer error with OK labels is not reported as success', lastAudit().status === 'partial' && !/✓/.test(status()), status());
+  check('the printer message is shown', /printer status 04: the printer lid is open/.test(status()) && /Printer error!/.test(status()) && /may not have come out/.test(status()), status());
+  w.document.getElementById('print-range').value = '';
+
+  // 2c. An unexpected error inside the print code is shown, not swallowed.
+  const realBuild = w.buildLabels;
+  w.buildLabels = () => { throw new Error('boom'); };
+  await w.printLabels();
+  check('unexpected errors are shown', /Print failed: boom/.test(status()) && !w.document.getElementById('print-btn').disabled, status());
+  w.buildLabels = realBuild;
 
   // 3. A print server without per-label results.
   labels = make(2);

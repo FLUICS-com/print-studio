@@ -109,7 +109,7 @@ const clickHandler = (name, nth = 0) => {
   reply = chunk => ({ status: 'OK', labels: chunk.map((l, i) => ({ jobID: l.id, status: i < 2 ? 'OK' : 'error' })) });
   $('print-range').value = '3-6'; w.syncPrintButton();
   await w.printLabels();
-  check('after a partial print the rest is entered as range', $('print-range').value === '5-6' && /labels 5-6 are entered/.test($('print-status').textContent), $('print-range').value + ' / ' + $('print-status').textContent);
+  check('after a partial print the rest is entered as range', $('print-range').value === '5-6' && /labels 5-6 are entered/i.test($('print-status').textContent), $('print-range').value + ' / ' + $('print-status').textContent);
   reply = chunk => ({ status: 'OK', labels: chunk.map(l => ({ jobID: l.id, status: 'OK' })) });
   await w.printLabels();
   check('a fully printed range clears itself', $('print-range').value === '' && requests[requests.length - 1].length === 2);

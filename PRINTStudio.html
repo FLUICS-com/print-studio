@@ -393,7 +393,7 @@
       <div class="mt-4 space-y-3">
         <!-- Print range: shown for jobs with more than one label -->
         <div id="print-range-row" class="hidden flex flex-wrap items-center gap-x-3 gap-y-1">
-          <label for="print-range" class="text-sm text-gray-600">Labels to print</label>
+          <label for="print-range" class="text-sm text-gray-600">Labels to print <span class="text-gray-400">(optional)</span></label>
           <input id="print-range" type="text" inputmode="numeric" autocomplete="off" class="field-input w-56" placeholder="All, or e.g. 1-5, 8" oninput="syncPrintButton()">
           <span id="print-range-info" class="text-xs text-gray-500"></span>
         </div>
@@ -728,8 +728,8 @@
 <p>A yellow warning appears when a template placeholder has no value, for example <em>${BATCH_ID} (empty in 3 of 25)</em>. Fix the data or the mapping before printing. More than 100 labels are sent in several requests automatically; a red note appears when a job has more than 1,000 labels, which is more than one job may print.</p>
 <h3>3.6 Printing</h3>
 <p>Select template and printer, check the preview, click <strong>Print</strong>. The button shows the number of labels. The result is shown below the button and written to the audit log, also when the print fails.</p>
-<p><strong>Labels to print.</strong> When a job has more than one label, a field next to the buttons lets you print only some of them: enter label numbers from the preview, for example <code>1-5, 8, 10-12</code>. Leave it empty to print all. The buttons show how many labels will be printed (<em>Print 6 labels</em>), and numbers outside the job are flagged. Counters, dates and all other values stay exactly as in the full job, so label 8 is printed with the same running number it has in the preview. <strong>Save as PDF</strong> uses the same range. The field empties itself after a successful print and when you switch the print mode.</p>
-<p>A label counts as printed only when the printer confirms it: the print service reports a result per label, and labels reported with an error (for example <em>labels are empty or jammed</em>, <em>the printer lid is open</em>) or not confirmed in time are listed by number. The message says which labels were printed, and the labels still missing are entered under <strong>Labels to print</strong>, for example <em>2 of 5 labels printed (labels 1-2); labels 3-5 are entered under Labels to print</em>: one more click on <strong>Print</strong> prints only those. The audit log shows the job as <em>Partly</em>. A local print server that does not report per label is accepted, and the message says that the labels were not confirmed one by one.</p>
+<p><strong>Labels to print (optional).</strong> When a job has more than one label, a field above the buttons lets you print only some of them: enter label numbers from the preview, for example <code>1-5, 8, 10-12</code>. Leave it empty to print all. The buttons show how many labels will be printed (<em>Print 6 labels</em>), and numbers outside the job are flagged. Counters, dates and all other values stay exactly as in the full job, so label 8 is printed with the same running number it has in the preview. <strong>Save as PDF</strong> uses the same range. The field empties itself after a successful print and when you switch the print mode.</p>
+<p>A label counts as printed only when the printer confirms it: the print service reports a result per label, and labels reported with an error (for example <em>labels are empty or jammed</em>, <em>the printer lid is open</em>) or not confirmed in time are listed by number. Problems reported by the printer itself (labels empty or jammed, ribbon, lid open, printer busy) are shown with the printer's status code and text, for example <em>Printer problem: printer status 01: labels are empty or jammed</em>. The message says which labels were printed, which were not, and, when the printer reports a problem without saying which labels came out, which labels may be missing so you can check them. The labels still to print are entered under <strong>Labels to print</strong>, for example <em>2 of 5 labels printed (labels 1-2). Labels 3-5 were not printed. Labels 3-5 are entered under Labels to print</em>: after fixing the printer, one more click on <strong>Print</strong> prints only those. The audit log shows the job as <em>Partly</em>. Unexpected errors are shown as <em>Print failed: …</em>; the message box below the buttons scrolls into view. A local print server that does not report per label is accepted, and the message says that the labels were not confirmed one by one.</p>
 <p>Limits, checked before anything is sent:
 - Jobs with more than 500 labels ask for confirmation, to catch a typo in a number of labels or a Copies cell.
 - One job prints at most 1,000 labels; split bigger jobs.
@@ -795,7 +795,8 @@
 <p>Releases are published in the GitHub repository <a target="_blank" class="text-blue-600 underline" href="https://github.com/FLUICS-com/print-studio">FLUICS-com/print-studio</a>, each as a tag (<code>v1.0</code>, <code>v1.1</code>, …) with the app (<code>PRINTStudio.html</code>), this manual and an example configuration. The version is shown in the footer and is written into every exported configuration (<code>appVersion</code>) and into every audit entry. Newer versions read configurations exported from older versions; the settings are converted automatically on import. To update: export your configuration in the old version, open the new file, import the configuration. If both files are opened from the same folder in the same browser, they share the stored settings, so the new version picks them up without an import.</p>
 <p><strong>Version 1.2</strong> (October 2026):</p>
 <ul>
-<li><strong>Labels to print</strong>: print or save only some labels of a job (<code>1-5, 8</code>); after a partly failed print the missing labels are entered there.</li>
+<li><strong>Labels to print</strong> (optional): print or save only some labels of a job (<code>1-5, 8</code>); after a partly failed print the missing labels are entered there.</li>
+<li>Printer problems (out of labels, lid open, ribbon, busy) are now always shown; before, they were hidden when the print service had accepted the labels.</li>
 <li>Label templates are edited inside their card instead of a pop-up; <strong>Clone</strong> copies a template.</li>
 <li>Paste to Print remembers your column assignments by column name, across reloads and new pastes or uploads.</li>
 <li>The browser tab shows <em>FLUICS PRINT Studio</em> without the version.</li>
@@ -932,7 +933,10 @@
  *        print, cleared after a full one), label templates edited inline in
  *        their card with Clone (modal removed), manual paste column choices
  *        remembered by header (S.lastUsed.pasteMemory), tab title without
- *        version.
+ *        version. Printer problems reported at the top level of a 200 answer
+ *        (error / printerStatus / details) are shown; labels the printer
+ *        accepted but may not have printed are named; unexpected errors in
+ *        printLabels are shown instead of failing silently.
  *   v11  Version 1.1, safety release after an external review: per-label
  *        print results (labels[].status), copies checked (^PQ 1..10, 1,000 per
  *        job, requests of at most 100 copies), ZPL values escaped per field
@@ -1110,6 +1114,25 @@ const LARGE_JOB = 500;
 const PQ_MAX_PER_LABEL = 10;
 const COPIES_PER_REQUEST = 100;
 const MAX_JOB_COPIES = 1000;
+/**
+ * The print API reports a printer problem (out of labels, lid open, ribbon,
+ * busy) at the top level of an HTTP 200 answer: error, printerStatus (not
+ * '00') and details, while it still forces status to 'OK' and the per-label
+ * results can say OK (the labels were accepted, not necessarily printed).
+ */
+function printerTrouble(res) {
+  return !!res && ((res.error != null && res.error !== '') || (res.printerStatus != null && String(res.printerStatus) !== '' && String(res.printerStatus) !== '00'));
+}
+/** Human-readable printer problem from an API answer, e.g. 'printer status 01: labels are empty or jammed (Printer error!)'. */
+function describePrinterProblem(res) {
+  const parts = [];
+  const ps = res.printerStatus != null ? String(res.printerStatus) : '';
+  if (ps && ps !== '00') parts.push(`printer status ${ps}${PRINTER_STATUS_TEXT[ps] ? ': ' + PRINTER_STATUS_TEXT[ps] : ''}`);
+  if (res.error != null && res.error !== '' && typeof res.error !== 'object') parts.push(`error ${res.error}`);
+  else if (res.error && res.error.message) parts.push(res.error.message);
+  const text = parts.join(', ') || 'the printer reported an error';
+  return res.details ? `${text} (${res.details})` : text;
+}
 const PRINTER_STATUS_TEXT = {
   '01': 'labels are empty or jammed', '02': 'labels are empty or jammed', '03': 'the ribbon is empty or jammed',
   '04': 'the printer lid is open', '50': 'the printer is busy',
@@ -3089,6 +3112,13 @@ function labelRanges(idx) {
  * OK count as printed. Writes an audit log entry on success and failure.
  */
 async function printLabels() {
+  try { await printLabelsInner(); }
+  catch (e) {
+    document.getElementById('print-btn').disabled = false;
+    setStatus(`Print failed: ${e.message}`, 'error');
+  }
+}
+async function printLabelsInner() {
   const all = buildLabels();
   if (!all.length) return setStatus('No labels to print.', 'error');
   const range = parsePrintRange(document.getElementById('print-range')?.value, all.length);
@@ -3133,7 +3163,7 @@ async function printLabels() {
   // Requests go out one after the other and stop at the first problem, so the
   // message can say exactly which labels printed and which to print again.
   const index = new Map(payload.map((p, i) => [p.id, i]));
-  const okIdx = [], badIdx = [];
+  const okIdx = [], badIdx = [], unsureIdx = [];
   let unconfirmed = 0, error = null, problem = '';
   try {
     for (const chunk of printChunks(payload)) {
@@ -3149,12 +3179,17 @@ async function printLabels() {
         continue;
       }
       const statusOf = new Map(res.labels.map(l => [l.jobID, String(l.status || '')]));
-      chunk.forEach(p => (statusOf.get(p.id)?.toUpperCase() === 'OK' ? okIdx : badIdx).push(index.get(p.id)));
-      if (badIdx.length) {
-        const st = chunk.map(p => statusOf.get(p.id)).find(v => v && v.toUpperCase() !== 'OK') || 'no result';
-        const ps = res.printerStatus && res.printerStatus !== '00'
-          ? `, printer status ${res.printerStatus}${PRINTER_STATUS_TEXT[res.printerStatus] ? ': ' + PRINTER_STATUS_TEXT[res.printerStatus] : ''}` : '';
-        problem = `the printer reported "${st}"${ps}${res.details ? ` (${res.details})` : ''}`;
+      const trouble = printerTrouble(res);
+      const isOk = p => statusOf.get(p.id)?.toUpperCase() === 'OK';
+      // A printer error while every label of the request says OK: the labels
+      // were accepted, but nothing tells which came out. When some labels
+      // failed, the ones reported OK before them did print.
+      const unsure = trouble && chunk.every(isOk);
+      chunk.forEach(p => (isOk(p) ? (unsure ? unsureIdx : okIdx) : badIdx).push(index.get(p.id)));
+      if (badIdx.length || trouble) {
+        const st = chunk.map(p => statusOf.get(p.id)).find(v => v && v.toUpperCase() !== 'OK');
+        problem = trouble ? describePrinterProblem(res)
+          : `the printer reported "${st || 'no result'}"${res.details ? ` (${res.details})` : ''}`;
         break;
       }
     }
@@ -3165,8 +3200,8 @@ async function printLabels() {
   }
 
   const n = labels.length;
-  const notSent = payload.map((_, i) => i).filter(i => !okIdx.includes(i) && !badIdx.includes(i));
-  if (!error && !badIdx.length) {
+  const notSent = payload.map((_, i) => i).filter(i => !okIdx.includes(i) && !badIdx.includes(i) && !unsureIdx.includes(i));
+  if (!error && !badIdx.length && !unsureIdx.length) {
     const note = unconfirmed ? ' (the print server did not confirm each label)' : '';
     setStatus(`✓ ${n} label${n !== 1 ? 's' : ''} printed${note}`, 'success');
     // Done: the next print is the whole job again.
@@ -3182,15 +3217,26 @@ async function printLabels() {
       : error.httpStatus === 404 ? `Printer not found, it may no longer be linked to your API key`
       : `Print failed: ${error.message}`;
   } else {
-    msg = `Print problem: ${problem}`;
+    msg = `Printer problem: ${problem}`;
   }
-  const again = [...badIdx, ...notSent];
-  if (okIdx.length) msg += `. ${okIdx.length} of ${n} labels printed (labels ${jobRanges(okIdx)}); labels ${jobRanges(again)} are entered under Labels to print: click Print to print only those again.`;
-  else msg += '. No label was printed.';
-  // Prefill the range with what is left, so the retry is one click.
-  if (okIdx.length) { document.getElementById('print-range').value = jobRanges(again); syncPrintButton(); }
+  const again = [...unsureIdx, ...badIdx, ...notSent];
+  const parts = [msg + '.'];
+  if (okIdx.length) parts.push(`${okIdx.length} of ${n} labels printed (labels ${jobRanges(okIdx)}).`);
+  if (unsureIdx.length) parts.push(`Labels ${jobRanges(unsureIdx)} reached the printer but may not have come out: check the printer and the printed labels.`);
+  if (badIdx.length) parts.push(`Labels ${jobRanges(badIdx)} were not printed.`);
+  if (notSent.length) parts.push(`Labels ${jobRanges(notSent)} were not sent.`);
+  if (!okIdx.length && !unsureIdx.length) parts.push('No label was printed.');
+  // Prefill the range with what may be missing, so the retry is one click.
+  if (again.length && again.length < n) {
+    document.getElementById('print-range').value = jobRanges(again);
+    syncPrintButton();
+    parts.push(`Labels ${jobRanges(again)} are entered under Labels to print: after fixing the printer, click Print to print only those.`);
+  } else if (again.length) {
+    parts.push('After fixing the printer, click Print to print the job again.');
+  }
+  msg = parts.join(' ');
   setStatus(msg, 'error');
-  addAuditEntry({ ...auditBase, status: okIdx.length ? 'partial' : 'error', error: msg });
+  addAuditEntry({ ...auditBase, status: okIdx.length || unsureIdx.length ? 'partial' : 'error', error: msg });
 }
 
 // ── PDF output ─────────────────────────────────────────────────────────────────
@@ -3544,6 +3590,7 @@ function setStatus(msg, type) {
   const el = document.getElementById('print-status');
   if (!msg) { el.style.display = 'none'; return; }
   el.textContent = msg;
+  if (type === 'error' || type === 'success') setTimeout(() => el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 0);
   el.style.cssText = {
     error:   'display:block;padding:.5rem .75rem;border-radius:.375rem;font-size:.875rem;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca',
     success: 'display:block;padding:.5rem .75rem;border-radius:.375rem;font-size:.875rem;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0',
