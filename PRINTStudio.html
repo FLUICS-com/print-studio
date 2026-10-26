@@ -391,6 +391,12 @@
 
       <!-- Actions -->
       <div class="mt-4 space-y-3">
+        <!-- Print range: shown for jobs with more than one label -->
+        <div id="print-range-row" class="hidden flex flex-wrap items-center gap-x-3 gap-y-1">
+          <label for="print-range" class="text-sm text-gray-600">Labels to print</label>
+          <input id="print-range" type="text" inputmode="numeric" autocomplete="off" class="field-input w-56" placeholder="All, or e.g. 1-5, 8" oninput="syncPrintButton()">
+          <span id="print-range-info" class="text-xs text-gray-500"></span>
+        </div>
         <div class="flex flex-wrap items-center gap-3">
           <button onclick="printLabels()" id="print-btn" class="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
             Print Labels
@@ -616,7 +622,7 @@
         <button onclick="closeHelp()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
       </div>
       <div class="help overflow-auto px-6 py-5" id="help-content">
-<h2 class="text-base font-semibold text-gray-900 mb-2">FLUICS PRINT Studio v1.1: User Manual</h2>
+<h2 class="text-base font-semibold text-gray-900 mb-2">FLUICS PRINT Studio v1.2: User Manual</h2>
 <p>PRINT Studio is a single HTML file that runs in your browser and sends label print jobs to FLUICS online label printers. Nothing is installed and no data is stored on a server: the configuration, the pasted data and the audit log live in your browser's local storage. Only the finished label content is sent to the printer through the FLUICS PRINT cloud API.</p>
 <p>PRINT Studio is open source under the MIT License. Source code and the latest version are at https://github.com/FLUICS-com/print-studio; the complete FLUICS PRINT API documentation (Swagger) is at https://printers.fluics.com/fluics/printapi-docs/prod/. The software is provided as is and used under your own responsibility: check every label in the preview before printing.</p>
 <h3>1. Requirements</h3>
@@ -688,7 +694,7 @@
 <p>After loading, the box shows the source (Clipboard or file name), the number of rows and columns, and the buttons <strong>Load other data</strong> and <strong>Clear</strong>.</p>
 <h4>Section 3: Columns and rows</h4>
 <p>This is the table that will be printed. Two things happen here:</p>
-<p><strong>Column mapping.</strong> Above every column there is a dropdown listing the <strong>placeholders of the selected label template</strong>, for example <code>${PRODUCT_NAME}</code>, <code>${BATCH_ID}</code>, <code>${DATE}</code>. Pick the placeholder the column fills. Placeholders of your other templates are listed as <em>(not in selected label template)</em>. Columns whose header matches a placeholder or a variable name (in English or German, for example Produkt, Charge, Test, Datum, Name) are mapped automatically; check the result and correct it where needed. Mapped columns are shown with a blue header, ignored columns are grey. Each placeholder can be taken from one column only. The <strong>Edit label templates</strong> link opens the template editor if a placeholder is missing.</p>
+<p><strong>Column mapping.</strong> Above every column there is a dropdown listing the <strong>placeholders of the selected label template</strong>, for example <code>${PRODUCT_NAME}</code>, <code>${BATCH_ID}</code>, <code>${DATE}</code>. Pick the placeholder the column fills. Placeholders of your other templates are listed as <em>(not in selected label template)</em>. Columns whose header matches a placeholder or a variable name (in English or German, for example Produkt, Charge, Test, Datum, Name) are mapped automatically; check the result and correct it where needed. Mapped columns are shown with a blue header, ignored columns are grey. Each placeholder can be taken from one column only. <strong>Your choices are remembered</strong> by column name: when you paste or upload a sheet with the same column names again (also after reloading the page or clicking Clear, and in any column order), the columns get the same placeholders, and a column you set to <em>Ignore column</em> stays ignored. Your own choice always wins over the automatic matching. Without a header row the choices are remembered by column position. The <strong>Edit label templates</strong> link opens the template editor if a placeholder is missing.</p>
 <p>The line above the grid lists every placeholder of the template and where it comes from, for example <em>${PRODUCT_NAME} ← column "Produkt" · ${USER} ← empty</em>. Read it before printing. Every placeholder that has no column yet shows a <strong>+ add column</strong> button: it asks for one value (for example the user name, or today's date) and adds a column filled with that value in every row. Change single cells afterwards if needed.</p>
 <p>The last entry in the dropdown is <strong>Copies: print row N times</strong>: the number in the cell is the number of labels for that row. The running number 1…N is written into the counter placeholder (Sample #) unless that placeholder has a column of its own. A column called Sample Count, Anzahl, Copies or Qty is mapped this way automatically. Without a copies column, every row prints once. If your sheet already lists every sample on its own row, map the sample number column directly to the counter placeholder instead.</p>
 <p><strong>Editing.</strong> Click any cell to change it; the preview updates while you type. Further tools:</p>
@@ -722,7 +728,8 @@
 <p>A yellow warning appears when a template placeholder has no value, for example <em>${BATCH_ID} (empty in 3 of 25)</em>. Fix the data or the mapping before printing. More than 100 labels are sent in several requests automatically; a red note appears when a job has more than 1,000 labels, which is more than one job may print.</p>
 <h3>3.6 Printing</h3>
 <p>Select template and printer, check the preview, click <strong>Print</strong>. The button shows the number of labels. The result is shown below the button and written to the audit log, also when the print fails.</p>
-<p>A label counts as printed only when the printer confirms it: the print service reports a result per label, and labels reported with an error (for example <em>labels are empty or jammed</em>, <em>the printer lid is open</em>) or not confirmed in time are listed by number. The message says which labels were printed and which to print again, for example <em>2 of 5 labels printed (labels 1-2); print only labels 3-5 again</em>, and the audit log shows the job as <em>Partly</em>. A local print server that does not report per label is accepted, and the message says that the labels were not confirmed one by one.</p>
+<p><strong>Labels to print.</strong> When a job has more than one label, a field next to the buttons lets you print only some of them: enter label numbers from the preview, for example <code>1-5, 8, 10-12</code>. Leave it empty to print all. The buttons show how many labels will be printed (<em>Print 6 labels</em>), and numbers outside the job are flagged. Counters, dates and all other values stay exactly as in the full job, so label 8 is printed with the same running number it has in the preview. <strong>Save as PDF</strong> uses the same range. The field empties itself after a successful print and when you switch the print mode.</p>
+<p>A label counts as printed only when the printer confirms it: the print service reports a result per label, and labels reported with an error (for example <em>labels are empty or jammed</em>, <em>the printer lid is open</em>) or not confirmed in time are listed by number. The message says which labels were printed, and the labels still missing are entered under <strong>Labels to print</strong>, for example <em>2 of 5 labels printed (labels 1-2); labels 3-5 are entered under Labels to print</em>: one more click on <strong>Print</strong> prints only those. The audit log shows the job as <em>Partly</em>. A local print server that does not report per label is accepted, and the message says that the labels were not confirmed one by one.</p>
 <p>Limits, checked before anything is sent:
 - Jobs with more than 500 labels ask for confirmation, to catch a typo in a number of labels or a Copies cell.
 - One job prints at most 1,000 labels; split bigger jobs.
@@ -776,7 +783,8 @@
 <p>API key and base URL of the FLUICS PRINT API; <strong>Save and load printers</strong> stores them and fetches the printer list. Below, give each printer a friendly name (for example Laboratory, Office). The name is used in the printer dropdown and in the audit log.</p>
 <h3>4.3 Label templates</h3>
 <p><strong>Edit ZPL with care.</strong> The template is sent to the printer as is. Keep the printer settings in the template (<code>^MT</code>, <code>^MD</code>, <code>^PR</code>, <code>^PW</code>, <code>^MU</code>: media type, darkness, speed, width, units) as delivered with your printer setup; changing them can spoil labels or misalign the printer. Check every change in the preview. Usage is under your own responsibility. If you need a new or adapted template, write to support@fluics.com or order one at https://fluics.com/product/custom-template/. Labels and ribbons for the FLUICS printers: https://fluics.com/labels.</p>
-<p>A template is the ZPL code of one label plus its size (width, height, printer resolution). To learn ZPL, the Learning ZPL box at the top of the Label templates section and the template editor link to Labelary's <a target="_blank" class="text-blue-600 underline" href="https://labelary.com/zpl.html">introduction with examples</a>, the <a target="_blank" class="text-blue-600 underline" href="https://labelary.com/viewer.html">Labelary online viewer</a> to try code, and Zebra's <a target="_blank" class="text-blue-600 underline" href="https://docs.zebra.com/us/en/printers/software/zpl-pg.html">ZPL programming guide</a> with the complete command reference. Write <code>${NAME}</code> where a value should be printed. Below the ZPL editor all placeholders are listed: the ones used in this template first, then the ones used in your other templates; <strong>click a placeholder to insert it at the cursor</strong>. Two names have a built-in role, shown as a small hint on the chip: the date placeholder (<em>date picker</em>) opens as a date row and the counter placeholder (<em>counter</em>) as a running number. Every placeholder of a saved template is offered in the dropdowns of Single Print, Batch Print, Label Bundles and Paste to Print. The ↑ ↓ buttons on each template card change the order of the templates, which is the order of the template dropdowns.  Do not include <code>^XA</code> and <code>^XZ</code>, the API adds them. Every template card in the overview shows a rendered image of the template (placeholders printed as <code>${…}</code>). The editor renders the layout once when it opens and again when you leave a field you changed (click into another field or anywhere else in the dialog) or click the preview box; while you type, the image is only dimmed.</p>
+<p>A template is the ZPL code of one label plus its size (width, height, printer resolution). To learn ZPL, the Learning ZPL box at the top of the Label templates section and the template editor link to Labelary's <a target="_blank" class="text-blue-600 underline" href="https://labelary.com/zpl.html">introduction with examples</a>, the <a target="_blank" class="text-blue-600 underline" href="https://labelary.com/viewer.html">Labelary online viewer</a> to try code, and Zebra's <a target="_blank" class="text-blue-600 underline" href="https://docs.zebra.com/us/en/printers/software/zpl-pg.html">ZPL programming guide</a> with the complete command reference. Write <code>${NAME}</code> where a value should be printed. Below the ZPL editor all placeholders are listed: the ones used in this template first, then the ones used in your other templates; <strong>click a placeholder to insert it at the cursor</strong>. Two names have a built-in role, shown as a small hint on the chip: the date placeholder (<em>date picker</em>) opens as a date row and the counter placeholder (<em>counter</em>) as a running number. Every placeholder of a saved template is offered in the dropdowns of Single Print, Batch Print, Label Bundles and Paste to Print. The ↑ ↓ buttons on each template card change the order of the templates, which is the order of the template dropdowns.  Do not include <code>^XA</code> and <code>^XZ</code>, the API adds them. Every template card in the overview shows a rendered image of the template (placeholders printed as <code>${…}</code>).</p>
+<p><strong>Edit</strong> opens the editor right inside the template's card (name, size, resolution, ZPL, placeholders, preview); <strong>Save template</strong> stores it, <strong>Cancel</strong> or <strong>Close editor</strong> closes it. One template is edited at a time: if you open another one or leave the section with unsaved changes, the app asks first. <strong>Clone</strong> makes a copy right below the original, named <em>… (copy)</em>, and opens it in the editor: rename it and change what differs, the original stays untouched. <strong>+ Add Template</strong> opens an empty editor at the top of the list. The editor renders the layout once when it opens and again when you leave a field you changed or click the preview box; while you type, the image is only dimmed.</p>
 <h3>4.4 Notes</h3>
 <p>A free-text field for ideas and reminders, stored with the configuration.</p>
 <h3>4.5 Audit Log</h3>
@@ -785,6 +793,13 @@
 <p>The audit log and the pasted data are stored in the browser's local storage for this file location. Opening the same HTML file from a different folder or in a different browser starts with an empty configuration: use export and import to carry it over.</p>
 <h3>6. Versions and updates</h3>
 <p>Releases are published in the GitHub repository <a target="_blank" class="text-blue-600 underline" href="https://github.com/FLUICS-com/print-studio">FLUICS-com/print-studio</a>, each as a tag (<code>v1.0</code>, <code>v1.1</code>, …) with the app (<code>PRINTStudio.html</code>), this manual and an example configuration. The version is shown in the footer and is written into every exported configuration (<code>appVersion</code>) and into every audit entry. Newer versions read configurations exported from older versions; the settings are converted automatically on import. To update: export your configuration in the old version, open the new file, import the configuration. If both files are opened from the same folder in the same browser, they share the stored settings, so the new version picks them up without an import.</p>
+<p><strong>Version 1.2</strong> (October 2026):</p>
+<ul>
+<li><strong>Labels to print</strong>: print or save only some labels of a job (<code>1-5, 8</code>); after a partly failed print the missing labels are entered there.</li>
+<li>Label templates are edited inside their card instead of a pop-up; <strong>Clone</strong> copies a template.</li>
+<li>Paste to Print remembers your column assignments by column name, across reloads and new pastes or uploads.</li>
+<li>The browser tab shows <em>FLUICS PRINT Studio</em> without the version.</li>
+</ul>
 <p><strong>Version 1.1</strong> (October 2026), safety release after an external review:</p>
 <ul>
 <li>A label counts as printed only when the printer confirms it; failed labels are listed by number and the audit log marks the job as <em>Partly</em>.</li>
@@ -846,17 +861,6 @@
   </div>
 
 
-  <!-- Generic Modal -->
-  <div id="modal" class="modal-backdrop hidden">
-    <div class="modal-box w-full max-w-3xl">
-      <h2 id="modal-title" class="modal-title"></h2>
-      <div id="modal-body" class="space-y-4"></div>
-      <div class="modal-actions">
-        <button onclick="closeModal()" class="btn-ghost">Cancel</button>
-        <button onclick="modalSave()" class="btn-primary">Save</button>
-      </div>
-    </div>
-  </div>
 
   <style>
     .field-label { display: block; font-size: 0.7rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
@@ -923,6 +927,12 @@
  *     migration step: customers import configs exported from old versions.
  *
  * Changelog:
+ *   v12  Version 1.2: print range for jobs with several labels (parsePrintRange,
+ *        also for the PDF; prefilled with the missing labels after a partial
+ *        print, cleared after a full one), label templates edited inline in
+ *        their card with Clone (modal removed), manual paste column choices
+ *        remembered by header (S.lastUsed.pasteMemory), tab title without
+ *        version.
  *   v11  Version 1.1, safety release after an external review: per-label
  *        print results (labels[].status), copies checked (^PQ 1..10, 1,000 per
  *        job, requests of at most 100 copies), ZPL values escaped per field
@@ -1037,6 +1047,8 @@
  *   S.lastUsed.paste : Paste to Print working set:
  *                       { headers[], rows[][], mapping[], hasHeader, source }
  *                       mapping[i] = ZPL token | 'copies' | null (ignored column)
+ *   S.lastUsed.pasteMemory : manual column choices, { 'h:<normalised header>' | 'c:<column index>': target | '' }
+ *                       ('' = deliberately ignored); applied to every new paste or upload
  *   S.lastUsed.bundle : { bundleId } (selected bundle; shared values live on the bundle)
  *   S.bundles[]      : label bundles: { id, name, templateId, items[{ id, token, value, count }], counter{ token, start, digits, prefix },
  *                       shared{ fields[], seededFor } (the bundle's own shared values) }
@@ -1063,7 +1075,7 @@
 // ── State ──────────────────────────────────────────────────────────────────────
 
 /** App version. Bump together with the release tag (vX.Y). */
-const APP_VERSION = '1.1';
+const APP_VERSION = '1.2';
 
 /**
  * Public links shown in the footer and the manual. Fill in before release;
@@ -1550,11 +1562,6 @@ let S = loadState();
 /** Printer list fetched from the API. Cached in memory; re-fetched on demand. */
 let printers = [];
 
-/** Callback set by showModal(); called when the user confirms the modal. */
-let modalAction = null;
-
-/** ID of the template currently being edited in the modal, or null for new. */
-let editingId = null;
 
 /** Active print mode: 'batch' | 'group' | 'paste'. Persisted in S.lastUsed.mode. */
 let printMode = S.lastUsed?.mode || 'batch';
@@ -1590,6 +1597,10 @@ function loadState({ strict = false } = {}) {
     if (s.lastUsed.mode === 'group') s.lastUsed.mode = 'bundle';
     if (!PRINT_MODES.includes(s.lastUsed.mode)) s.lastUsed.mode = s.lastUsed.groupMode ? 'bundle' : 'batch';
     delete s.lastUsed.groupMode;
+    // Remembered manual paste column choices: keep string values only.
+    if (s.lastUsed.pasteMemory && typeof s.lastUsed.pasteMemory === 'object' && !Array.isArray(s.lastUsed.pasteMemory)) {
+      s.lastUsed.pasteMemory = Object.fromEntries(Object.entries(s.lastUsed.pasteMemory).filter(([, v]) => typeof v === 'string'));
+    } else delete s.lastUsed.pasteMemory;
     // Paste to Print working set (v06). Normalise the shape so every field exists.
     if (s.lastUsed.paste && typeof s.lastUsed.paste === 'object') {
       const p = s.lastUsed.paste;
@@ -1952,6 +1963,7 @@ const SETTINGS_SECTIONS = ['general', 'connect', 'templates', 'notes', 'audit'];
  */
 function showSection(name) {
   if (!SETTINGS_SECTIONS.includes(name)) name = 'general';
+  if (name !== 'templates' && !leaveTemplateEditor()) return;
   SETTINGS_SECTIONS.forEach(sec => {
     document.getElementById(`section-${sec}`).classList.toggle('hidden', sec !== name);
     document.getElementById(`snav-${sec}`).classList.toggle('active', sec === name);
@@ -2007,6 +2019,7 @@ function openSettings(section) {
 
 /** Close the settings panel. All sections auto-save, so nothing is lost. */
 function closeSettings() {
+  if (!leaveTemplateEditor()) return;   // unsaved template changes: ask first
   document.getElementById('settings-modal').classList.add('hidden');
   // Variables, templates or groups may have changed: rebuild the print view.
   initPrintTab();
@@ -2977,11 +2990,48 @@ function refreshPreview() {
   scheduleLabelaryRender();
 }
 
+/**
+ * Optional print range for jobs with several labels: "1-5, 8, 10-12" picks
+ * label numbers of the preview (1-based); empty means all. Counters and dates
+ * keep the values they have in the full job, so a range reprints exactly those
+ * labels (for example the ones a failed print lists).
+ * @param {string} text
+ * @param {number} n - labels in the job
+ * @returns {{idx: number[]|null, error: string}} 0-based positions, null for all
+ */
+function parsePrintRange(text, n) {
+  const t = String(text || '').replace(/[\u2010-\u2015]/g, '-').replace(/\s*-\s*/g, '-').trim();
+  if (!t || /^all$/i.test(t)) return { idx: null, error: '' };
+  const set = new Set();
+  for (const part of t.split(/[,;\s]+/).filter(Boolean)) {
+    const m = /^(\d+)(?:-(\d+))?$/.exec(part);
+    if (!m) return { idx: null, error: `"${part}" is not a label number or range` };
+    let a = Number(m[1]), b = m[2] ? Number(m[2]) : a;
+    if (a > b) [a, b] = [b, a];
+    if (a < 1 || b > n) return { idx: null, error: `the labels are numbered 1 to ${n}` };
+    for (let i = a; i <= b; i++) set.add(i - 1);
+  }
+  return { idx: [...set].sort((x, y) => x - y), error: '' };
+}
+
 /** Update the Print / PDF buttons with the mode and the label count, and the no-printer hint. */
 function syncPrintButton(count) {
   const btn = document.getElementById('print-btn');
   if (!btn) return;
-  const n = count === undefined ? buildLabels().length : count;
+  const total = count === undefined ? buildLabels().length : count;
+  // Range field only when there is something to choose from.
+  const rangeRow = document.getElementById('print-range-row');
+  const rangeInput = document.getElementById('print-range');
+  rangeRow?.classList.toggle('hidden', total < 2);
+  const range = total < 2 ? { idx: null, error: '' } : parsePrintRange(rangeInput?.value, total);
+  const info = document.getElementById('print-range-info');
+  if (info) {
+    info.textContent = range.error ? `Not valid: ${range.error}` : range.idx ? `${range.idx.length} of ${total} labels` : '';
+    info.className = range.error ? 'text-xs text-red-600' : 'text-xs text-gray-500';
+  }
+  rangeInput?.classList.toggle('border-red-400', !!range.error);
+  const n = range.idx ? range.idx.length : total;
+  btn.disabled = !!range.error;
   const hasKey = !!S.settings.apiKey;
   const labelary = labelaryOn();
   document.getElementById('no-printer-hint')?.classList.toggle('hidden', hasKey);
@@ -2990,7 +3040,7 @@ function syncPrintButton(count) {
   document.getElementById('printer-connect-link')?.classList.toggle('hidden', hasKey);
   document.getElementById('pdf-labelary-hint')?.classList.toggle('hidden', labelary);
   const pdf = document.getElementById('pdf-btn');
-  if (pdf) { pdf.textContent = `Save as PDF (${n} label${n !== 1 ? 's' : ''})`; pdf.disabled = !labelary; }
+  if (pdf) { pdf.textContent = `Save as PDF (${n} label${n !== 1 ? 's' : ''})`; pdf.disabled = !labelary || !!range.error; }
   const noun = `${n} label${n !== 1 ? 's' : ''}`;
   btn.textContent = printMode === 'single' ? 'Print label'
                   : printMode === 'bundle' ? `Print Bundle (${noun})`
@@ -3039,8 +3089,13 @@ function labelRanges(idx) {
  * OK count as printed. Writes an audit log entry on success and failure.
  */
 async function printLabels() {
-  const labels = buildLabels();
-  if (!labels.length) return setStatus('No labels to print.', 'error');
+  const all = buildLabels();
+  if (!all.length) return setStatus('No labels to print.', 'error');
+  const range = parsePrintRange(document.getElementById('print-range')?.value, all.length);
+  if (range.error) return setStatus(`Not printed: ${range.error}.`, 'error');
+  const nums = range.idx || all.map((_, i) => i);     // job positions of the labels sent
+  const labels = nums.map(i => all[i]);
+  const jobRanges = pos => labelRanges(pos.map(i => nums[i]).sort((a, b) => a - b));
   const lid = document.getElementById('printer-select').value;
   if (!lid) return setStatus('Select a printer.', 'error');
   const tmpl = S.templates.find(t => t.id === document.getElementById('template-select').value);
@@ -3054,7 +3109,7 @@ async function printLabels() {
   const copies = payload.map(p => labelCopies(p.data));
   const total = copies.reduce((a, b) => a + b, 0);
   const tooMany = copies.findIndex(c => c > PQ_MAX_PER_LABEL || c < 1);
-  if (tooMany >= 0) return setStatus(`Not printed: label ${tooMany + 1} asks for ${copies[tooMany]} copies (^PQ). The printer accepts 1 to ${PQ_MAX_PER_LABEL} copies per label.`, 'error');
+  if (tooMany >= 0) return setStatus(`Not printed: label ${nums[tooMany] + 1} asks for ${copies[tooMany]} copies (^PQ). The printer accepts 1 to ${PQ_MAX_PER_LABEL} copies per label.`, 'error');
   if (total > MAX_JOB_COPIES) return setStatus(`Not printed: this job would print ${total} labels, more than ${MAX_JOB_COPIES} at once. Check the copies and counters, or print in smaller parts.`, 'error');
   if (total > LARGE_JOB && !confirm(`Print ${total} labels? Check the preview if this is more than you expected.`)) return;
 
@@ -3114,6 +3169,8 @@ async function printLabels() {
   if (!error && !badIdx.length) {
     const note = unconfirmed ? ' (the print server did not confirm each label)' : '';
     setStatus(`✓ ${n} label${n !== 1 ? 's' : ''} printed${note}`, 'success');
+    // Done: the next print is the whole job again.
+    if (range.idx) { document.getElementById('print-range').value = ''; syncPrintButton(); }
     addAuditEntry({ ...auditBase, status: 'success' });
     return;
   }
@@ -3127,9 +3184,11 @@ async function printLabels() {
   } else {
     msg = `Print problem: ${problem}`;
   }
-  const again = [...badIdx, ...notSent].sort((a, b) => a - b);
-  if (okIdx.length) msg += `. ${okIdx.length} of ${n} labels printed (labels ${labelRanges([...okIdx].sort((a, b) => a - b))}); print only labels ${labelRanges(again)} again.`;
+  const again = [...badIdx, ...notSent];
+  if (okIdx.length) msg += `. ${okIdx.length} of ${n} labels printed (labels ${jobRanges(okIdx)}); labels ${jobRanges(again)} are entered under Labels to print: click Print to print only those again.`;
   else msg += '. No label was printed.';
+  // Prefill the range with what is left, so the retry is one click.
+  if (okIdx.length) { document.getElementById('print-range').value = jobRanges(again); syncPrintButton(); }
   setStatus(msg, 'error');
   addAuditEntry({ ...auditBase, status: okIdx.length ? 'partial' : 'error', error: msg });
 }
@@ -3154,8 +3213,11 @@ function loadPdfLib() {
 
 /** Render all labels of the current preview to a PDF and download it. Logged in the audit log. */
 async function saveLabelsPdf() {
-  const labels = buildLabels();
-  if (!labels.length) return setStatus('No labels to save.', 'error');
+  const all = buildLabels();
+  if (!all.length) return setStatus('No labels to save.', 'error');
+  const range = parsePrintRange(document.getElementById('print-range')?.value, all.length);
+  if (range.error) return setStatus(`Not saved: ${range.error}.`, 'error');
+  const labels = range.idx ? range.idx.map(i => all[i]) : all;
   const tmpl = currentTemplate();
   if (!tmpl) return setStatus('Select a template.', 'error');
   if (!labelaryOn()) return setStatus('The PDF is rendered by Labelary. Switch on the rendered preview first (Settings, General).', 'error');
@@ -3560,15 +3622,32 @@ function setPrinterName(lid, value) {
 
 /**
  * Render all saved templates as cards with a read-only ZPL preview.
- * Each card shows the template name, label dimensions, and Edit/Delete buttons.
+ * Each card shows the template name, label dimensions and the buttons ↑ ↓,
+ * Edit, Clone, Delete. Edit opens the editor inside the card (no pop-up);
+ * one template is edited at a time (tmplEditId, 'new' for an added one).
  */
+let tmplEditId = null;
+let tmplDirty = false;
+
 function renderTemplates() {
   const el = document.getElementById('templates-list');
-  if (!S.templates.length) { el.innerHTML = empty('No templates added yet'); return; }
   const withPreview = labelaryOn();
-  el.innerHTML = S.templates.map((t, i) =>
-    `<div class="border border-gray-200 rounded-lg p-4">
-      <div class="flex items-center justify-between mb-2">
+  const editor = t => `
+      <div id="tmpl-editor" class="mt-3 pt-3 border-t border-gray-100">
+        ${tmplBody(t)}
+        <div class="flex flex-wrap justify-end gap-2 mt-4">
+          <span id="tmpl-editor-msg" class="text-xs text-red-600 self-center mr-auto"></span>
+          <button type="button" ${uiOn('click', 'cancelEditTemplate')} class="btn-ghost text-sm">Cancel</button>
+          <button type="button" ${uiOn('click', 'saveTemplate')} class="btn-primary text-sm">Save template</button>
+        </div>
+      </div>`;
+  const newCard = tmplEditId === 'new'
+    ? `<div class="border border-blue-300 rounded-lg p-4 ring-1 ring-blue-100"><div class="text-sm font-medium text-gray-800">New template</div>${editor()}</div>` : '';
+  if (!S.templates.length && !newCard) { el.innerHTML = empty('No templates added yet'); return; }
+  el.innerHTML = newCard + S.templates.map((t, i) => {
+    const open = tmplEditId === t.id;
+    return `<div class="border ${open ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200'} rounded-lg p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
         <div>
           <span class="text-sm font-medium">${esc(t.name)}</span>
           <span class="ml-2 text-xs text-gray-400">${dimToUnit(t.labelWidth||1)} × ${dimToUnit(t.labelHeight||0.5)} ${unitLabel()} · ${t.labelDpmm==12?'300':t.labelDpmm==6?'152':'203'} dpi</span>
@@ -3578,17 +3657,73 @@ function renderTemplates() {
             <button ${uiOn('click', 'moveTemplate', t.id, -1)} title="Move up" ${i === 0 ? 'disabled' : ''} class="px-1 text-gray-400 hover:text-blue-600 disabled:opacity-30 leading-none">↑</button>
             <button ${uiOn('click', 'moveTemplate', t.id, 1)} title="Move down" ${i === S.templates.length - 1 ? 'disabled' : ''} class="px-1 text-gray-400 hover:text-blue-600 disabled:opacity-30 leading-none">↓</button>
           </span>
-          <button ${uiOn('click', 'openEditTemplate', t.id)} class="text-xs text-blue-600 hover:underline">Edit</button>
+          <button ${uiOn('click', 'toggleEditTemplate', t.id)} class="text-xs text-blue-600 hover:underline" aria-expanded="${open}">${open ? 'Close editor' : 'Edit'}</button>
+          <button ${uiOn('click', 'cloneTemplate', t.id)} class="text-xs text-blue-600 hover:underline" title="Make a copy of this template to change">Clone</button>
           <button ${uiOn('click', 'deleteTemplate', t.id)} class="text-xs text-red-500 hover:underline">Delete</button>
         </div>
       </div>
+      ${open ? editor(t) : `
       <div class="grid gap-3" style="${withPreview ? 'grid-template-columns:minmax(0,1fr) 220px' : ''}">
         <textarea class="zpl-editor w-full h-24 text-xs border border-gray-200 rounded p-2 bg-gray-50 resize-none" readonly>${esc(t.zpl)}</textarea>
         ${withPreview ? `<div id="tpl-preview-${esc(t.id)}" class="bg-gray-100 rounded border border-gray-200 flex items-center justify-center p-2 text-xs text-gray-400 italic min-h-[6rem]">${t.zpl.trim() ? 'Rendering…' : 'No ZPL yet'}</div>` : ''}
-      </div>
-    </div>`
-  ).join('');
+      </div>`}
+    </div>`;
+  }).join('');
   if (withPreview) renderTemplateCardPreviews();
+  if (tmplEditId) {
+    updateTmplTokenHint();
+    if (withPreview && tmplEditId !== 'new') setTimeout(renderTmplModalPreview, 80);
+  }
+}
+
+/** Leave the open editor; asks first when it has unsaved changes. Returns false when the user keeps editing. */
+function leaveTemplateEditor() {
+  if (tmplEditId && tmplDirty && !confirm('Discard the changes to this template?')) return false;
+  tmplEditId = null; tmplDirty = false; tmplPreviewStale = false;
+  return true;
+}
+
+/** Edit button: open the editor in this card, or close it again. */
+function toggleEditTemplate(id) {
+  const opening = tmplEditId !== id;
+  if (!leaveTemplateEditor()) return;
+  if (opening) tmplEditId = id;
+  renderTemplates();
+  if (opening) focusTemplateEditor();
+}
+
+/** Cancel in the editor. */
+function cancelEditTemplate() {
+  if (!leaveTemplateEditor()) return;
+  renderTemplates();
+}
+
+/** Clone: a copy right below the original, opened in the editor so it can be renamed and changed. */
+function cloneTemplate(id) {
+  if (!leaveTemplateEditor()) return;
+  const i = S.templates.findIndex(t => t.id === id);
+  if (i < 0) return;
+  const src = S.templates[i];
+  const names = new Set(S.templates.map(t => t.name));
+  let name = `${src.name} (copy)`, n = 2;
+  while (names.has(name)) name = `${src.name} (copy ${n++})`;
+  const copy = { ...JSON.parse(JSON.stringify(src)), id: uid(), name };
+  S.templates.splice(i + 1, 0, copy);
+  save();
+  initPrintTab();
+  tmplEditId = copy.id;
+  renderTemplates();
+  focusTemplateEditor(true);
+}
+
+/** Scroll the open editor into view and focus the name field (selected for a fresh clone). */
+function focusTemplateEditor(select) {
+  setTimeout(() => {
+    const ed = document.getElementById('tmpl-editor');
+    ed?.closest('.rounded-lg')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const name = document.getElementById('m-tname2');
+    if (name) { name.focus(); if (select) name.select(); }
+  }, 40);
 }
 
 /**
@@ -3633,23 +3768,20 @@ async function renderTemplateCardPreviews() {
   }
 }
 
-/** Open the Add Template modal with blank fields. */
+/** + Add Template: an empty editor card at the top of the list. */
 function openAddTemplate() {
-  editingId = null; showModal('Add Template', tmplBody()); modalAction = saveTemplate;
-  updateTmplTokenHint();
-  // No initial ZPL to preview yet; preview will render once the user starts typing.
+  if (tmplEditId === 'new') { focusTemplateEditor(); return; }
+  if (!leaveTemplateEditor()) return;
+  tmplEditId = 'new';
+  renderTemplates();
+  focusTemplateEditor();
 }
 
-/** Open the Edit Template modal pre-populated with the given template's data. */
-function openEditTemplate(id) {
-  editingId = id; showModal('Edit Template', tmplBody(S.templates.find(t => t.id === id))); modalAction = saveTemplate;
-  updateTmplTokenHint();
-  // One render when the editor opens; afterwards only when the preview box is clicked.
-  if (labelaryOn()) setTimeout(renderTmplModalPreview, 80);
-}
+/** Open the editor of one template (kept for older callers; same as Edit). */
+function openEditTemplate(id) { if (tmplEditId !== id) toggleEditTemplate(id); }
 
 /**
- * Build the HTML body for the Add/Edit Template modal.
+ * Build the HTML body of the template editor (inside the template's card).
  * Includes name, label dimensions (width, height, dpi: used by Labelary preview),
  * and the ZPL code textarea.
  * @param {object} [t] - Existing template object for pre-fill, or undefined for a new template.
@@ -3660,7 +3792,7 @@ function tmplBody(t) {
   const gridStyle = withPreview
     ? 'display:grid;grid-template-columns:1fr 220px;gap:1.25rem;align-items:start'
     : '';
-  const zplEvents = 'oninput="updateTmplTokenHint(); markTmplPreviewStale()"';
+  const zplEvents = 'oninput="updateTmplTokenHint(); markTmplPreviewStale(); tmplDirty = true"';
   const dimEvents = withPreview ? 'oninput="markTmplPreviewStale()"' : '';
   const dpiEvent  = withPreview ? 'onchange="markTmplPreviewStale()"' : '';
   return `
@@ -3668,7 +3800,7 @@ function tmplBody(t) {
       <div class="space-y-4">
         <div>
           <label class="field-label">Template Name</label>
-          <input id="m-tname2" type="text" value="${esc(t?.name||'')}" placeholder="e.g. Standard 50×25mm" class="field-input w-full">
+          <input id="m-tname2" type="text" value="${esc(t?.name||'')}" placeholder="e.g. Standard 50×25mm" class="field-input w-full" oninput="tmplDirty = true">
         </div>
         <div class="grid grid-cols-3 gap-2">
           <div>
@@ -3750,76 +3882,54 @@ function insertTmplToken(tok) {
   markTmplPreviewStale();
 }
 
-/** Read the template modal fields and create or update the template in state. */
+/** Read the editor fields and create or update the template in state. */
 function saveTemplate() {
   const name      = document.getElementById('m-tname2').value.trim();
   const zpl       = document.getElementById('m-tzpl').value;
   const labelWidth  = dimFromUnit(parseFloat(document.getElementById('m-tlbl-width').value))  || 1;
   const labelHeight = dimFromUnit(parseFloat(document.getElementById('m-tlbl-height').value)) || 0.5;
   const labelDpmm   = parseInt(document.getElementById('m-tlbl-dpmm').value)     || 12;
-  if (!name) return;
-  if (editingId) {
-    Object.assign(S.templates.find(t => t.id === editingId), { name, zpl, labelWidth, labelHeight, labelDpmm });
-  } else {
-    S.templates.push({ id: uid(), name, zpl, labelWidth, labelHeight, labelDpmm });
+  if (!name) {
+    document.getElementById('tmpl-editor-msg').textContent = 'Give the template a name.';
+    document.getElementById('m-tname2').focus();
+    return;
   }
+  const existing = tmplEditId !== 'new' && S.templates.find(t => t.id === tmplEditId);
+  if (existing) Object.assign(existing, { name, zpl, labelWidth, labelHeight, labelDpmm });
+  else S.templates.unshift({ id: uid(), name, zpl, labelWidth, labelHeight, labelDpmm });
   pruneStaleRows(S);
-  save(); closeModal(); renderTemplates(); initPrintTab();
+  tmplEditId = null; tmplDirty = false; tmplPreviewStale = false;
+  save(); renderTemplates(); initPrintTab();
 }
 
 /** Delete a template after confirmation. Re-initialises the Print tab dropdown. */
 function deleteTemplate(id) {
   if (!confirm('Delete this template?')) return;
+  if (tmplEditId === id) { tmplEditId = null; tmplDirty = false; }
   S.templates = S.templates.filter(t => t.id !== id);
   pruneStaleRows(S); // rows for placeholders only this template used are dropped
   save(); renderTemplates(); initPrintTab();
 }
 
-// ── Modal ──────────────────────────────────────────────────────────────────────
+// ── Template editor preview triggers ─────────────────────────────────────────────
 
-/**
- * Open the generic modal with a title and arbitrary HTML body content.
- * Sets modalAction so the Save button routes to the correct handler.
- * Auto-focuses the first input or textarea after a short delay (needed because
- * the element must be in the DOM before focus() works).
- * @param {string} title - Modal heading.
- * @param {string} body  - HTML string to inject into the modal body.
- */
-function showModal(title, body) {
-  document.getElementById('modal-title').textContent = title;
-  document.getElementById('modal-body').innerHTML = body;
-  document.getElementById('modal').classList.remove('hidden');
-  setTimeout(() => document.querySelector('#modal input, #modal textarea')?.focus(), 40);
-}
-
-/** Close the modal and reset shared state used by the modal save handler. */
 /**
  * Template editor preview, same rule as the print view: typing never renders;
  * the preview refreshes when the user leaves a field (ZPL, width, height,
  * resolution) after changing it, or clicks the preview box.
  */
 let tmplPreviewStale = false;
-document.getElementById('modal').addEventListener('focusout', e => {
-  if (!tmplPreviewStale || !document.getElementById('m-label-preview')) return;
+document.addEventListener('focusout', e => {
+  if (!tmplPreviewStale || !e.target.closest?.('#tmpl-editor') || !document.getElementById('m-label-preview')) return;
   // Clicking a placeholder chip inserts into the ZPL and refocuses it: not "done yet".
   if (e.relatedTarget?.closest?.('#m-tzpl-tokens')) return;
-  setTimeout(() => {
-    const open = !document.getElementById('modal').classList.contains('hidden');
-    if (open && tmplPreviewStale && labelaryOn()) renderTmplModalPreview();
-  }, 0);
+  setTimeout(() => { if (document.getElementById('tmpl-editor') && tmplPreviewStale && labelaryOn()) renderTmplModalPreview(); }, 0);
 });
-document.getElementById('modal').addEventListener('change', e => {
+document.addEventListener('change', e => {
+  if (!e.target.closest?.('#tmpl-editor')) return;
+  tmplDirty = true;
   if (e.target.id === 'm-tlbl-dpmm' && tmplPreviewStale && labelaryOn()) renderTmplModalPreview();
 });
-
-function closeModal() {
-  tmplPreviewStale = false;
-  document.getElementById('modal').classList.add('hidden');
-  modalAction = null; editingId = null;
-}
-
-/** Called by the modal Save button; delegates to whichever action opened the modal. */
-function modalSave() { if (modalAction) modalAction(); }
 
 // ── Template modal Labelary preview ───────────────────────────────────────────
 
@@ -4081,6 +4191,10 @@ const UI_HANDLERS = {
   setPrinterName: (lid, v) => setPrinterName(lid, v),
   moveTemplate: (id, dir) => moveTemplate(id, dir),
   openEditTemplate: id => openEditTemplate(id),
+  toggleEditTemplate: id => toggleEditTemplate(id),
+  cloneTemplate: id => cloneTemplate(id),
+  cancelEditTemplate: () => cancelEditTemplate(),
+  saveTemplate: () => saveTemplate(),
   deleteTemplate: id => deleteTemplate(id),
   insertTmplToken: tok => insertTmplToken(tok),
   toggleAuditZpl: i => toggleAuditZpl(i),
@@ -4148,6 +4262,8 @@ const MODE_LABELS = { single: 'Single Print', batch: 'Batch Print', bundle: 'Lab
  */
 function setPrintMode(mode) {
   if (!PRINT_MODES.includes(mode)) mode = 'batch';
+  // A print range belongs to the labels of one mode.
+  if (mode !== printMode) { const r = document.getElementById('print-range'); if (r) r.value = ''; }
   printMode = mode;
   S.lastUsed.mode = mode;
   save();
@@ -4379,12 +4495,52 @@ function ingestRows(raw, source) {
   }
   P.source = source;
   P.mapping = P.headers.map(() => null);
-  autoMapPasteColumns();
+  autoMapPasteColumns(applyPasteMemory());
   save();
   setPasteStatus('');
   renderPastePane();
   clearLabelaryCache();
   refreshPreview();
+}
+
+/**
+ * Manual column choices are remembered by column name (normalised header) or,
+ * without a header row, by column position. A new paste or upload of a similar
+ * sheet gets the same assignments, also after a reload and after Clear; only
+ * columns without a remembered choice are auto-mapped. '' remembers "Ignore
+ * column", so a deliberately ignored column is not auto-mapped again.
+ */
+const PASTE_MEMORY_MAX = 300;
+function pasteMemory() {
+  if (!S.lastUsed.pasteMemory || typeof S.lastUsed.pasteMemory !== 'object') S.lastUsed.pasteMemory = {};
+  return S.lastUsed.pasteMemory;
+}
+function pasteMemKey(P, ci) {
+  const n = P.hasHeader ? normHeader(P.headers[ci]) : '';
+  return n ? 'h:' + n : 'c:' + ci;
+}
+function rememberPasteChoice(P, ci, target) {
+  const mem = pasteMemory(), k = pasteMemKey(P, ci);
+  delete mem[k];                       // re-insert so the newest choices are kept when trimming
+  mem[k] = target || '';
+  const keys = Object.keys(mem);
+  keys.slice(0, Math.max(0, keys.length - PASTE_MEMORY_MAX)).forEach(x => delete mem[x]);
+}
+/** Apply remembered choices to the current columns; returns the columns that were set (also to "ignore"). */
+function applyPasteMemory() {
+  const P = pasteState(), mem = pasteMemory();
+  const valid = new Set([...placeholderChoices().map(c => c.tok), PASTE_COPIES_KEY]);
+  const taken = new Set(), decided = new Set();
+  P.headers.forEach((h, ci) => {
+    const k = pasteMemKey(P, ci);
+    if (!Object.prototype.hasOwnProperty.call(mem, k)) return;
+    const t = mem[k];
+    if (t && (!valid.has(t) || taken.has(t))) return;   // placeholder gone, or already used by an earlier column
+    P.mapping[ci] = t || null;
+    if (t) taken.add(t);
+    decided.add(ci);
+  });
+  return decided;
 }
 
 /**
@@ -4394,7 +4550,7 @@ function ingestRows(raw, source) {
  * then the synonym lists. Each target is used at most once (first column
  * wins). Only unmapped columns are touched.
  */
-function autoMapPasteColumns() {
+function autoMapPasteColumns(skip = new Set()) {
   const P = pasteState();
   const taken = new Set(P.mapping.filter(Boolean));
   const tokens = placeholderChoices().map(c => c.tok);
@@ -4406,7 +4562,7 @@ function autoMapPasteColumns() {
   });
   const synonyms = Object.entries(PASTE_SYNONYMS).map(([k, names]) => ({ target: k === PASTE_COPIES_KEY ? k : token(k), names }));
   P.headers.forEach((h, ci) => {
-    if (P.mapping[ci]) return;
+    if (P.mapping[ci] || skip.has(ci)) return;
     const n = normHeader(h);
     if (!n) return;
     let hit = byName.find(t => !taken.has(t.target) && t.names.includes(n))?.target;
@@ -4427,6 +4583,7 @@ function setPasteMapping(ci, key) {
   key = key || null;
   if (key) P.mapping = P.mapping.map((m, i) => (m === key && i !== ci) ? null : m);
   P.mapping[ci] = key;
+  rememberPasteChoice(P, ci, key);
   save();
   renderPastePane();
   clearLabelaryCache();
@@ -4441,7 +4598,7 @@ function onPasteHeaderToggle(checked) {
   if (checked) {
     if (P.rows.length) { P.headers = P.rows[0].map((h, i) => h || `Column ${colLetter(i)}`); P.rows = P.rows.slice(1); }
     P.mapping = P.headers.map(() => null);
-    autoMapPasteColumns();
+    autoMapPasteColumns(applyPasteMemory());
   } else {
     P.rows = [P.headers.slice(), ...P.rows];
     P.headers = P.headers.map((_, i) => `Column ${colLetter(i)}`);
@@ -4912,10 +5069,11 @@ if (S.settings.apiKey) loadPrinters();
 // Close modals when clicking the backdrop (outside the modal box).
 document.getElementById('settings-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeSettings(); });
 document.getElementById('help-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeHelp(); });
-document.getElementById('modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
 document.getElementById('scanner-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeScanner(); });
-// Allow Enter key to confirm the generic modal (but not inside textareas).
-document.getElementById('modal').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') modalSave(); });
+// Enter in a field of the template editor saves the template (not inside the ZPL textarea).
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.closest?.('#tmpl-editor') && e.target.tagName === 'INPUT') { e.preventDefault(); saveTemplate(); }
+});
 </script>
 </body>
 </html>

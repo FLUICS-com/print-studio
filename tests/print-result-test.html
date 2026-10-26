@@ -81,7 +81,9 @@ function loadApp() {
   reply = chunk => ({ status: 200, body: { status: 'OK', printerStatus: '01', labels: chunk.map((l, i) => ({ jobID: l.id, status: i < 2 ? 'OK' : 'error' })) } });
   await w.printLabels();
   check('HTTP 200 with failed labels is not success', lastAudit().status === 'partial', status());
-  check('message names the labels to print again', /labels 1-2\)/.test(status()) && /print only labels 3-5 again/.test(status()), status());
+  check('message names the labels to print again', /labels 1-2\)/.test(status()) && /labels 3-5 are entered under Labels to print/.test(status()), status());
+  check('the rest is entered as print range', w.document.getElementById('print-range').value === '3-5');
+  w.document.getElementById('print-range').value = '';
   check('printer status is explained', /labels are empty or jammed/.test(status()));
 
   // 3. A print server without per-label results.

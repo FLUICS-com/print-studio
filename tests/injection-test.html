@@ -77,7 +77,7 @@ async function fire(w, type, skip = []) {
   }
   w.openSettings('templates'); await wait(300);
   const before = w.eval('S').templates.map(t => t.id).join(',');
-  await fire(w, 'click', ['openEditTemplate', 'deleteTemplate']);
+  await fire(w, 'click', ['openEditTemplate', 'deleteTemplate', 'toggleEditTemplate', 'cloneTemplate', 'cancelEditTemplate', 'saveTemplate']);
   await wait(300);
   check('no injected code ran', hits.size === 0, hits.size ? 'payloads that ran: ' + [...hits].join(', ') : '');
   check('template move buttons still work through delegation', w.eval('S').templates.map(t => t.id).join(',') !== before);

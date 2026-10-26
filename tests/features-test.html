@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRINT Studio features test</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 16px; background: #fff; color: #222; }
+  .pass { color: #0a7d32; } .fail { color: #b00020; font-weight: 600; }
+  iframe { width: 100%; height: 420px; border: 1px solid #ccc; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h1>PRINT Studio features test</h1>
+<p>Print range, inline template editor with Clone, and remembered column assignments in Paste to Print.
+Mocked print API, no network. Serve the repository root on a spare port (<code>python3 -m http.server 8770</code>)
+and open <code>/tests/features-test.html</code>; the test overwrites this origin's <code>lr_state</code>.</p>
+<ol id="out"></ol>
+<p id="summary">Running…</p>
+<iframe id="app" title="App under test"></iframe>
+<script>
+const results = [];
+function check(name, ok, detail = '') {
+  results.push(ok);
+  const li = document.createElement('li');
+  li.className = ok ? 'pass' : 'fail';
+  li.textContent = `${ok ? 'PASS' : 'FAIL'}: ${name}${detail ? ' (' + detail + ')' : ''}`;
+  document.getElementById('out').appendChild(li);
+}
+const wait = ms => new Promise(r => setTimeout(r, ms));
+let w;
+function loadApp() {
+  return new Promise(res => {
+    const f = document.getElementById('app');
+    f.onload = () => { w = f.contentWindow; res(w); };
+    f.src = '../PRINTStudio.html?t=' + Date.now();
+  });
+}
+const S = () => w.eval('S');
+const $ = id => w.document.getElementById(id);
+const paste = async text => { $('paste-input').value = text; w.ingestPasteText(); await wait(80); };
+const mapping = () => JSON.stringify(S().lastUsed.paste.mapping);
+const clickHandler = (name, nth = 0) => {
+  const el = [...w.document.querySelectorAll(`[data-onclick="${name}"]`)][nth];
+  if (!el) throw new Error('no button ' + name);
+  el.click();
+};
+
+(async () => {
+  localStorage.removeItem('lr_state');
+  await loadApp(); await wait(300);
+  w.confirm = () => true;
+
+  // ── Paste to Print: manual column choices survive reload and new data ──────
+  w.setPrintMode('paste'); await wait(100);
+  await paste('Reagenz\tGefaess\tNotiz\nA\t1\tx\nB\t2\ty');
+  check('unknown headers are not auto-mapped', mapping() === '[null,null,null]', mapping());
+  w.setPasteMapping(0, 'NAME'); w.setPasteMapping(1, 'BATCH_ID'); w.setPasteMapping(2, '');
+  await loadApp(); await wait(300); w.confirm = () => true;
+  check('manual mapping survives a reload', mapping() === '["NAME","BATCH_ID",null]', mapping());
+  const sels = [...w.document.querySelectorAll('[data-onchange="setPasteMapping"]')].map(s => s.value);
+  check('the dropdowns show it after the reload', sels.slice(0, 2).join() === 'NAME,BATCH_ID', sels.join());
+  await paste('Gefaess\tReagenz\tNotiz\tType\n7\tC\tz\tblood');
+  check('new paste with other column order keeps the choices', mapping() === '["BATCH_ID","NAME",null,"TYPE"]', mapping());
+  w.loadPasteFile(new w.File(['Reagenz;Gefaess\nD;9\n'], 'data.csv', { type: 'text/csv' }));
+  await wait(300);
+  check('spreadsheet upload keeps the choices', mapping() === '["NAME","BATCH_ID"]', mapping());
+  w.clearPaste(); await wait(50);
+  await paste('Notiz\tReagenz\nq\tE');
+  check('choices survive Clear, ignored column stays ignored', mapping() === '[null,"NAME"]', mapping());
+  await paste('Charge\n1');
+  w.setPasteMapping(0, 'NAME');
+  await paste('Charge\n2');
+  check('a manual choice beats the built-in synonym (Charge is batch by default)', mapping() === '["NAME"]', mapping());
+  $('paste-has-header').checked = false;
+  await paste('X\t5\nY\t6');
+  w.setPasteMapping(1, 'SAMPLE_COUNT');
+  await paste('Z\t8');
+  check('without header row the choice is kept by position', JSON.parse(mapping())[1] === 'SAMPLE_COUNT', mapping());
+  $('paste-has-header').checked = true;
+
+  // ── Print range ─────────────────────────────────────────────────────────────
+  w.setPrintMode('batch'); await wait(150);
+  const total = w.buildLabels().length;
+  check('range field shown for jobs with several labels', total > 1 && !$('print-range-row').classList.contains('hidden'), total + ' labels');
+  $('print-range').value = '1-5, 8'; w.syncPrintButton();
+  check('button and note follow the range', /Print 6 labels/.test($('print-btn').textContent) && /6 of \d+ labels/.test($('print-range-info').textContent), $('print-btn').textContent + ' / ' + $('print-range-info').textContent);
+  $('print-range').value = '2-' + (total + 5); w.syncPrintButton();
+  check('out-of-range input is flagged and blocks printing', $('print-btn').disabled && /numbered 1 to/.test($('print-range-info').textContent), $('print-range-info').textContent);
+  $('print-range').value = '1 – 3'; w.syncPrintButton();
+  check('dashes and spaces are accepted', /Print 3 labels/.test($('print-btn').textContent), $('print-btn').textContent);
+
+  // Print a range through a mocked API: label numbers, counters and the retry prefill.
+  const requests = [];
+  let reply = chunk => ({ status: 'OK', labels: chunk.map(l => ({ jobID: l.id, status: 'OK' })) });
+  w.fetch = async (url, opts = {}) => {
+    if (/\/batchprint$/.test(String(url))) { const c = JSON.parse(opts.body); requests.push(c); return new w.Response(JSON.stringify(reply(c)), { status: 200, headers: { 'Content-Type': 'application/json' } }); }
+    return new w.Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  S().settings.apiKey = 'test-key';
+  const ps = $('printer-select'); ps.add(new w.Option('Test printer', 'TST1')); ps.value = 'TST1';
+  const all = w.buildLabels();
+  const tmpl = w.currentTemplate();
+  $('print-range').value = '3-6'; w.syncPrintButton();
+  await w.printLabels();
+  const sent = requests[0] || [];
+  check('only the range is sent', sent.length === 4, sent.length + ' labels');
+  check('labels keep their values from the full job', sent.length && sent[0].data === w.subst(tmpl.zpl, all[2]) && sent[3].data === w.subst(tmpl.zpl, all[5]));
+  reply = chunk => ({ status: 'OK', labels: chunk.map((l, i) => ({ jobID: l.id, status: i < 2 ? 'OK' : 'error' })) });
+  $('print-range').value = '3-6'; w.syncPrintButton();
+  await w.printLabels();
+  check('after a partial print the rest is entered as range', $('print-range').value === '5-6' && /labels 5-6 are entered/.test($('print-status').textContent), $('print-range').value + ' / ' + $('print-status').textContent);
+  reply = chunk => ({ status: 'OK', labels: chunk.map(l => ({ jobID: l.id, status: 'OK' })) });
+  await w.printLabels();
+  check('a fully printed range clears itself', $('print-range').value === '' && requests[requests.length - 1].length === 2);
+  $('print-range').value = '1-2'; w.syncPrintButton();
+  w.setPrintMode('single'); await wait(100);
+  check('range is cleared on mode change and hidden for one label', $('print-range').value === '' && $('print-range-row').classList.contains('hidden'));
+
+  // ── Templates: inline editor, Clone, Add ───────────────────────────────────
+  w.openSettings('templates'); await wait(200);
+  check('there is no pop-up editor any more', !$('modal'));
+  const firstId = S().templates[0].id;
+  clickHandler('toggleEditTemplate', 0); await wait(100);
+  const ed = $('tmpl-editor');
+  check('Edit opens the editor inside the template card', !!ed && ed.closest('#templates-list') !== null);
+  $('m-tname2').value = 'Renamed template'; $('m-tname2').dispatchEvent(new w.Event('input', { bubbles: true }));
+  clickHandler('saveTemplate'); await wait(100);
+  check('Save stores the change and closes the editor', S().templates[0].name === 'Renamed template' && !$('tmpl-editor'));
+  const before = S().templates.length;
+  clickHandler('cloneTemplate', 0); await wait(150);
+  const clone = S().templates[1];
+  check('Clone adds a copy right below the original', S().templates.length === before + 1 && clone.name === 'Renamed template (copy)' && clone.zpl === S().templates[0].zpl && clone.id !== firstId);
+  check('the copy opens in the editor', !!$('tmpl-editor') && $('m-tname2').value === 'Renamed template (copy)');
+  clickHandler('cancelEditTemplate'); await wait(80);
+  // Unsaved changes: switching to another template asks first.
+  clickHandler('toggleEditTemplate', 0); await wait(80);
+  $('m-tname2').value = 'Unsaved'; $('m-tname2').dispatchEvent(new w.Event('input', { bubbles: true }));
+  let asked = 0; w.confirm = () => { asked++; return false; };
+  clickHandler('toggleEditTemplate', 1); await wait(80);
+  check('unsaved changes are not dropped silently', asked === 1 && $('m-tname2').value === 'Unsaved');
+  w.confirm = () => true;
+  clickHandler('cancelEditTemplate'); await wait(80);
+  w.openAddTemplate(); await wait(100);
+  clickHandler('saveTemplate'); await wait(50);
+  check('a new template needs a name', /name/.test($('tmpl-editor-msg').textContent));
+  $('m-tname2').value = 'Brand new'; $('m-tzpl').value = '^FO10,10^FD${NAME}^FS';
+  clickHandler('saveTemplate'); await wait(100);
+  check('Add Template saves at the top of the list', S().templates[0].name === 'Brand new' && !$('tmpl-editor'));
+
+  localStorage.removeItem('lr_state');
+  const failed = results.filter(r => !r).length;
+  document.getElementById('summary').innerHTML = failed
+    ? `<strong class="fail">${failed} of ${results.length} checks failed</strong>`
+    : `<strong class="pass">All ${results.length} checks passed</strong>`;
+  document.title = failed ? 'FAIL' : 'PASS';
+})().catch(e => { check('test ran without errors', false, e.message); document.title = 'FAIL'; });
+</script>
+</body>
+</html>
