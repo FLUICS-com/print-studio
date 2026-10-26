@@ -54,7 +54,7 @@ Either
 - click **Upload .xlsx / .csv** and pick a file. For Excel files with several sheets, a sheet selector appears next to the data summary. Date cells are converted to dates automatically, or
 - click **Enter manually** to start with an empty table: one column per placeholder of the selected template and the number of rows you enter. Type the values directly into the grid.
 
-Leave **First row contains column names** ticked when your first row is a header. Untick it if the data starts immediately; the columns are then called Column A, B, C.
+Leave **First row contains column names** ticked when your first row is a header. Untick it if the data starts immediately; the columns are then called Column A, B, C. Switching it after loading keeps every column's assignment (the columns do not move). The app remembers the setting for the next paste or upload, also after **Remove data** and after reloading the page.
 
 After loading, the box shows the source (Clipboard or file name), the number of rows and columns, and the button **Remove data**. It deletes the table, including cells you changed, after asking, and shows the paste and upload box again: use it to start over or to load other data. Your column assignments are remembered (see below), so a sheet with the same column names is mapped the same way again.
 
@@ -189,7 +189,7 @@ Releases are published in the GitHub repository [FLUICS-com/print-studio](https:
 - An offline printer is reported at once (status check before sending) instead of leaving *Sending…* on screen; the app waits at most 45 seconds for an answer.
 - Printer problems (out of labels, lid open, ribbon, busy) are now always shown; before, they were hidden when the print service had accepted the labels.
 - Label templates are edited inside their card instead of a pop-up; **Clone** copies a template.
-- Paste to Print remembers your column assignments by column name, across reloads and new pastes or uploads.
+- Paste to Print remembers your column assignments by column name, across reloads and new pastes or uploads; switching **First row contains column names** keeps them, and the setting itself is remembered.
 - The browser tab shows *FLUICS PRINT Studio* without the version.
 
 **Version 1.1** (October 2026), safety release after an external review:

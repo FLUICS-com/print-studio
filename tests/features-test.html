@@ -81,6 +81,27 @@ const clickHandler = (name, nth = 0) => {
   check('without header row the choice is kept by position', JSON.parse(mapping())[1] === 'SAMPLE_COUNT', mapping());
   $('paste-has-header').checked = true;
 
+  // ── Header checkbox: keeps assignments, is remembered ──────────────────────
+  $('paste-has-header').checked = true;
+  await paste('Reagenz\tGefaess\nA\t1\nB\t2');
+  w.setPasteMapping(0, 'NAME'); w.setPasteMapping(1, 'BATCH_ID');
+  $('paste-has-header').checked = false; w.onPasteHeaderToggle(false); await wait(50);
+  check('unticking "First row contains column names" keeps the assignments', mapping() === '["NAME","BATCH_ID"]' && S().lastUsed.paste.rows.length === 3, mapping());
+  $('paste-has-header').checked = true; w.onPasteHeaderToggle(true); await wait(50);
+  check('ticking it again keeps them too', mapping() === '["NAME","BATCH_ID"]' && S().lastUsed.paste.rows.length === 2, mapping());
+  $('paste-has-header').checked = false; w.onPasteHeaderToggle(false); await wait(50);
+  w.clearPaste(); await wait(50);
+  check('the checkbox state survives Remove data', $('paste-has-header').checked === false);
+  await paste('C\t3');
+  check('the next paste uses it (no header row)', S().lastUsed.paste.hasHeader === false && S().lastUsed.paste.rows.length === 1);
+  check('and the assignments by position', mapping() === '["NAME","BATCH_ID"]', mapping());
+  await loadApp(); await wait(300); w.confirm = () => true;
+  w.setPrintMode('paste'); await wait(100);
+  check('the checkbox state survives a reload', $('paste-has-header').checked === false);
+  w.clearPaste(); await wait(50);
+  check('also after reload plus Remove data', $('paste-has-header').checked === false);
+  $('paste-has-header').checked = true; w.onPasteHeaderToggle(true);
+
   // ── Print range ─────────────────────────────────────────────────────────────
   w.setPrintMode('batch'); await wait(150);
   const total = w.buildLabels().length;

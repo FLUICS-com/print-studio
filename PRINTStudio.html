@@ -689,7 +689,7 @@
 <li>click <strong>Upload .xlsx / .csv</strong> and pick a file. For Excel files with several sheets, a sheet selector appears next to the data summary. Date cells are converted to dates automatically, or</li>
 <li>click <strong>Enter manually</strong> to start with an empty table: one column per placeholder of the selected template and the number of rows you enter. Type the values directly into the grid.</li>
 </ul>
-<p>Leave <strong>First row contains column names</strong> ticked when your first row is a header. Untick it if the data starts immediately; the columns are then called Column A, B, C.</p>
+<p>Leave <strong>First row contains column names</strong> ticked when your first row is a header. Untick it if the data starts immediately; the columns are then called Column A, B, C. Switching it after loading keeps every column's assignment (the columns do not move). The app remembers the setting for the next paste or upload, also after <strong>Remove data</strong> and after reloading the page.</p>
 <p>After loading, the box shows the source (Clipboard or file name), the number of rows and columns, and the button <strong>Remove data</strong>. It deletes the table, including cells you changed, after asking, and shows the paste and upload box again: use it to start over or to load other data. Your column assignments are remembered (see below), so a sheet with the same column names is mapped the same way again.</p>
 <h4>Section 3: Columns and rows</h4>
 <p>This is the table that will be printed. Two things happen here:</p>
@@ -799,7 +799,7 @@
 <li>An offline printer is reported at once (status check before sending) instead of leaving <em>Sending…</em> on screen; the app waits at most 45 seconds for an answer.</li>
 <li>Printer problems (out of labels, lid open, ribbon, busy) are now always shown; before, they were hidden when the print service had accepted the labels.</li>
 <li>Label templates are edited inside their card instead of a pop-up; <strong>Clone</strong> copies a template.</li>
-<li>Paste to Print remembers your column assignments by column name, across reloads and new pastes or uploads.</li>
+<li>Paste to Print remembers your column assignments by column name, across reloads and new pastes or uploads; switching <strong>First row contains column names</strong> keeps them, and the setting itself is remembered.</li>
 <li>The browser tab shows <em>FLUICS PRINT Studio</em> without the version.</li>
 </ul>
 <p><strong>Version 1.1</strong> (October 2026), safety release after an external review:</p>
@@ -933,7 +933,9 @@
  *        also for the PDF; prefilled with the missing labels after a partial
  *        print, cleared after a full one), label templates edited inline in
  *        their card with Clone (modal removed), manual paste column choices
- *        remembered by header (S.lastUsed.pasteMemory), tab title without
+ *        remembered by header (S.lastUsed.pasteMemory; kept when the header
+ *        checkbox is switched, which is remembered in pasteHasHeader), one
+ *        Remove data button, tab title without
  *        version. Printer problems reported at the top level of a 200 answer
  *        (error / printerStatus / details) are shown; labels the printer
  *        accepted but may not have printed are named; unexpected errors in
@@ -1055,6 +1057,7 @@
  *   S.lastUsed.paste : Paste to Print working set:
  *                       { headers[], rows[][], mapping[], hasHeader, source }
  *                       mapping[i] = ZPL token | 'copies' | null (ignored column)
+ *   S.lastUsed.pasteHasHeader : last state of "First row contains column names" (default true), kept across pastes, Remove data and reloads
  *   S.lastUsed.pasteMemory : manual column choices, { 'h:<normalised header>' | 'c:<column index>': target | '' }
  *                       ('' = deliberately ignored); applied to every new paste or upload
  *   S.lastUsed.bundle : { bundleId } (selected bundle; shared values live on the bundle)
@@ -1641,6 +1644,7 @@ function loadState({ strict = false } = {}) {
       if (!Array.isArray(p.mapping))   p.mapping   = [];
       delete p.constants; // v06 pre-release field, replaced by per-field columns
       if (typeof p.hasHeader !== 'boolean') p.hasHeader = true;
+      if (typeof s.lastUsed.pasteHasHeader !== 'boolean') s.lastUsed.pasteHasHeader = p.hasHeader;
       if (typeof p.source !== 'string') p.source = '';
       // v06 pre-release mappings used variable keys; mappings are now ZPL tokens.
       const tokenOf = key => { const v = s.variables.find(x => x.key === key); return v ? v.label.toUpperCase().replace(/\s+/g,'_').replace(/[^A-Z0-9_]/g,'').replace(/_+$/g,'') : null; };
@@ -4472,7 +4476,7 @@ const PASTE_SYNONYMS = {
 
 /** @returns {object} The paste working set, creating an empty one if needed. */
 function pasteState() {
-  if (!S.lastUsed.paste) S.lastUsed.paste = { headers: [], rows: [], mapping: [], hasHeader: true, source: '' };
+  if (!S.lastUsed.paste) S.lastUsed.paste = { headers: [], rows: [], mapping: [], hasHeader: S.lastUsed.pasteHasHeader !== false, source: '' };
   return S.lastUsed.paste;
 }
 
@@ -4609,6 +4613,7 @@ function ingestRows(raw, source) {
   const width = raw.reduce((w, r) => Math.max(w, r.length), 0); // no spread: large pastes would overflow the call stack
   const padded = raw.map(r => Array.from({ length: width }, (_, i) => String(r[i] ?? '').trim()));
   P.hasHeader = document.getElementById('paste-has-header')?.checked !== false;
+  S.lastUsed.pasteHasHeader = P.hasHeader;
   if (P.hasHeader && padded.length) {
     P.headers = padded[0].map((h, i) => h || `Column ${colLetter(i)}`);
     P.rows = padded.slice(1);
@@ -4714,18 +4719,37 @@ function setPasteMapping(ci, key) {
 }
 
 /** Toggle whether the first row is treated as column names, keeping edits intact. */
+/**
+ * "First row contains column names". The choice is kept for the next paste
+ * (S.lastUsed.pasteHasHeader). Toggling does not move any column, so every
+ * column keeps its assignment; only columns without one are matched again by
+ * the new header names. The assignments are remembered under the new column
+ * keys too, so the next paste with the same setting gets them.
+ */
 function onPasteHeaderToggle(checked) {
+  S.lastUsed.pasteHasHeader = checked;
   const P = pasteState();
-  if (checked === P.hasHeader) return;
+  if (checked === P.hasHeader || !P.headers.length) { P.hasHeader = checked; save(); return; }
   P.hasHeader = checked;
+  const kept = P.mapping.slice();
   if (checked) {
     if (P.rows.length) { P.headers = P.rows[0].map((h, i) => h || `Column ${colLetter(i)}`); P.rows = P.rows.slice(1); }
+    // Current choices win; remembered or matching names fill the rest.
     P.mapping = P.headers.map(() => null);
-    autoMapPasteColumns(applyPasteMemory());
+    const decided = applyPasteMemory();
+    kept.forEach((t, ci) => {
+      if (!t) return;
+      P.mapping = P.mapping.map((m, i) => (m === t && i !== ci) ? null : m);
+      P.mapping[ci] = t;
+      decided.add(ci);
+    });
+    autoMapPasteColumns(decided);
   } else {
     P.rows = [P.headers.slice(), ...P.rows];
     P.headers = P.headers.map((_, i) => `Column ${colLetter(i)}`);
+    P.mapping = kept;
   }
+  P.mapping.forEach((t, ci) => { if (t) rememberPasteChoice(P, ci, t); });
   save();
   renderPastePane();
   clearLabelaryCache();
@@ -4868,7 +4892,7 @@ function renderPastePane() {
   document.getElementById('paste-source-summary').classList.toggle('hidden', !loaded);
   document.getElementById('paste-grid-card').classList.toggle('hidden', !loaded);
   const hdr = document.getElementById('paste-has-header');
-  if (hdr) hdr.checked = P.hasHeader !== false;
+  if (hdr) hdr.checked = loaded ? P.hasHeader !== false : S.lastUsed.pasteHasHeader !== false;
 
   if (!loaded) return;
 
