@@ -311,10 +311,13 @@
           <div id="paste-source-summary" class="hidden flex flex-wrap items-center justify-between gap-2">
             <div class="text-xs text-gray-600" id="paste-source-text"></div>
             <div class="flex items-center gap-2">
+              <button type="button" id="paste-original-btn" onclick="togglePasteOriginal()" class="btn-secondary text-xs hidden" aria-expanded="false" title="Show the data exactly as it was pasted or read from the file">View original data</button>
               <select id="paste-sheet-select" class="field-input text-xs hidden" style="padding:0.25rem 0.5rem" onchange="onPasteSheetChange(this.value)"></select>
               <button type="button" onclick="clearPaste()" class="btn-secondary text-xs" style="color:#dc2626" title="Removes this table; then paste or upload new data. Column assignments are remembered.">✕ Remove data</button>
             </div>
           </div>
+          <!-- Original data, read-only (toggled by "View original data") -->
+          <div id="paste-original" class="hidden mt-3"></div>
         </div>
 
         <!-- Step 2: mapping + grid -->
@@ -690,7 +693,7 @@
 <li>click <strong>Enter manually</strong> to start with an empty table: one column per placeholder of the selected template and the number of rows you enter. Type the values directly into the grid.</li>
 </ul>
 <p>Leave <strong>First row contains column names</strong> ticked when your first row is a header. Untick it if the data starts immediately; the columns are then called Column A, B, C. Switching it after loading keeps every column's assignment (the columns do not move). The app remembers the setting for the next paste or upload, also after <strong>Remove data</strong> and after reloading the page.</p>
-<p>After loading, the box shows the source (Clipboard or file name), the number of rows and columns, and the button <strong>Remove data</strong>. It deletes the table, including cells you changed, after asking, and shows the paste and upload box again: use it to start over or to load other data. Your column assignments are remembered (see below), so a sheet with the same column names is mapped the same way again.</p>
+<p>After loading, the box shows the source (Clipboard or file name), the number of rows and columns, and the buttons <strong>View original data</strong> and <strong>Remove data</strong>. <strong>View original data</strong> shows, read-only, exactly what was pasted or read from the file: every row with its Excel row number and column letter, the header row marked in blue, before any change you make in section 3 (the first 300 rows are shown). Use it to check what the app actually received, for example when a value looks different in the table. It is kept when you reload the page, but not written to configuration exports. <strong>Remove data</strong> deletes the table, including cells you changed, after asking, and shows the paste and upload box again: use it to start over or to load other data. Your column assignments are remembered (see below), so a sheet with the same column names is mapped the same way again.</p>
 <h4>Section 3: Columns and rows</h4>
 <p>This is the table that will be printed. Two things happen here:</p>
 <p><strong>Column mapping.</strong> Above every column there is a dropdown listing the <strong>placeholders of the selected label template</strong>, for example <code>${PRODUCT_NAME}</code>, <code>${BATCH_ID}</code>, <code>${DATE}</code>. Pick the placeholder the column fills. Placeholders of your other templates are listed as <em>(not in selected label template)</em>. Columns whose header matches a placeholder or a variable name (in English or German, for example Produkt, Charge, Test, Datum, Name) are mapped automatically; check the result and correct it where needed. Mapped columns are shown with a blue header, ignored columns are grey. Each placeholder can be taken from one column only. <strong>Your choices are remembered</strong> by column name: when you paste or upload a sheet with the same column names again (also after reloading the page or clicking Clear, and in any column order), the columns get the same placeholders, and a column you set to <em>Ignore column</em> stays ignored. Your own choice always wins over the automatic matching. Without a header row the choices are remembered by column position. The <strong>Edit label templates</strong> link opens the template editor if a placeholder is missing.</p>
@@ -799,6 +802,7 @@
 <li>An offline printer is reported at once (status check before sending) instead of leaving <em>Sending…</em> on screen; the app waits at most 45 seconds for an answer.</li>
 <li>Printer problems (out of labels, lid open, ribbon, busy) are now always shown; before, they were hidden when the print service had accepted the labels.</li>
 <li>Label templates are edited inside their card instead of a pop-up; <strong>Clone</strong> copies a template.</li>
+<li>Paste to Print: <strong>View original data</strong> shows what was actually pasted or uploaded.</li>
 <li>Paste to Print remembers your column assignments by column name, across reloads and new pastes or uploads; switching <strong>First row contains column names</strong> keeps them, and the setting itself is remembered.</li>
 <li>The browser tab shows <em>FLUICS PRINT Studio</em> without the version.</li>
 </ul>
@@ -935,7 +939,8 @@
  *        their card with Clone (modal removed), manual paste column choices
  *        remembered by header (S.lastUsed.pasteMemory; kept when the header
  *        checkbox is switched, which is remembered in pasteHasHeader), one
- *        Remove data button, tab title without
+ *        Remove data button, View original data (P.raw, read-only, not
+ *        exported), tab title without
  *        version. Printer problems reported at the top level of a 200 answer
  *        (error / printerStatus / details) are shown; labels the printer
  *        accepted but may not have printed are named; unexpected errors in
@@ -1055,7 +1060,9 @@
  *   S.lastUsed.single: Single Print rows: { fields[] } (same row shape as batch, no counter)
  *   S.lastUsed.batch : Batch Print rows: { copies, fields: [{ token, kind: 'static'|'date'|'counter', value, date, start, digits, prefix }] }
  *   S.lastUsed.paste : Paste to Print working set:
- *                       { headers[], rows[][], mapping[], hasHeader, source }
+ *                       { headers[], rows[][], mapping[], hasHeader, source, raw?[][], rawTotal? }
+ *                       raw = the rows exactly as read from the paste or file (before the
+ *                       header split and any edit), at most PASTE_RAW_MAX rows; view only
  *                       mapping[i] = ZPL token | 'copies' | null (ignored column)
  *   S.lastUsed.pasteHasHeader : last state of "First row contains column names" (default true), kept across pastes, Remove data and reloads
  *   S.lastUsed.pasteMemory : manual column choices, { 'h:<normalised header>' | 'c:<column index>': target | '' }
@@ -1646,6 +1653,7 @@ function loadState({ strict = false } = {}) {
       if (typeof p.hasHeader !== 'boolean') p.hasHeader = true;
       if (typeof s.lastUsed.pasteHasHeader !== 'boolean') s.lastUsed.pasteHasHeader = p.hasHeader;
       if (typeof p.source !== 'string') p.source = '';
+      if (!Array.isArray(p.raw) || !p.raw.every(Array.isArray)) { delete p.raw; delete p.rawTotal; }
       // v06 pre-release mappings used variable keys; mappings are now ZPL tokens.
       const tokenOf = key => { const v = s.variables.find(x => x.key === key); return v ? v.label.toUpperCase().replace(/\s+/g,'_').replace(/[^A-Z0-9_]/g,'').replace(/_+$/g,'') : null; };
       p.mapping = p.mapping.map(m => {
@@ -2156,6 +2164,7 @@ function exportState(kind = 'share') {
   delete copy.lastUsed.varInputs;
   Object.values(copy.lastUsed.byMode || {}).forEach(m => delete m.printer);
   delete copy.settings.labelaryConsent;   // consent belongs to the person, not the file
+  if (copy.lastUsed.paste) { delete copy.lastUsed.paste.raw; delete copy.lastUsed.paste.rawTotal; }  // view-only copy of the pasted data
   const backup = kind === 'backup';
   if (!backup) copy.settings.apiKey = '';
   const { auditLog, ...rest } = copy;
@@ -4614,6 +4623,10 @@ function ingestRows(raw, source) {
   const padded = raw.map(r => Array.from({ length: width }, (_, i) => String(r[i] ?? '').trim()));
   P.hasHeader = document.getElementById('paste-has-header')?.checked !== false;
   S.lastUsed.pasteHasHeader = P.hasHeader;
+  // What was actually read, for "View original data" (edits never touch it).
+  P.raw = padded.slice(0, PASTE_RAW_MAX).map(r => r.slice());   // own copy: edits to P.rows must not reach it
+  P.rawTotal = padded.length;
+  pasteOriginalOpen = false;
   if (P.hasHeader && padded.length) {
     P.headers = padded[0].map((h, i) => h || `Column ${colLetter(i)}`);
     P.rows = padded.slice(1);
@@ -4757,6 +4770,56 @@ function onPasteHeaderToggle(checked) {
 }
 
 /**
+ * "View original data": the rows exactly as they were pasted or read from the
+ * file, before the header row was split off and before any edit in section 3,
+ * shown read-only with Excel row numbers and column letters. Kept with the
+ * working set (P.raw, first PASTE_RAW_MAX rows) so it survives a reload; not
+ * written to exports.
+ */
+const PASTE_RAW_MAX = 2000;
+const PASTE_RAW_SHOW = 300;
+let pasteOriginalOpen = false;
+
+function togglePasteOriginal() {
+  pasteOriginalOpen = !pasteOriginalOpen;
+  renderPasteOriginal();
+}
+
+function renderPasteOriginal() {
+  const box = document.getElementById('paste-original');
+  const btn = document.getElementById('paste-original-btn');
+  if (!box) return;
+  const P = pasteState();
+  const raw = Array.isArray(P.raw) ? P.raw : [];
+  const open = pasteOriginalOpen && raw.length > 0;
+  box.classList.toggle('hidden', !open);
+  if (btn) { btn.textContent = open ? 'Hide original data' : 'View original data'; btn.setAttribute('aria-expanded', String(open)); }
+  if (!open) { box.innerHTML = ''; return; }
+  const width = raw.reduce((w, r) => Math.max(w, r.length), 0);
+  const shown = raw.slice(0, PASTE_RAW_SHOW);
+  const total = P.rawTotal || raw.length;
+  const head = `<tr><th class="px-2 py-1 text-gray-400 font-normal"></th>${Array.from({ length: width }, (_, i) => `<th class="px-2 py-1 text-gray-400 font-normal text-left">${colLetter(i)}</th>`).join('')}</tr>`;
+  const body = shown.map((r, ri) => {
+    const isHeader = ri === 0 && P.hasHeader;
+    return `<tr class="${isHeader ? 'bg-blue-50 font-medium' : ri % 2 ? 'bg-gray-50' : ''}">
+      <td class="px-2 py-1 text-gray-400 text-right">${ri + 1}</td>
+      ${Array.from({ length: width }, (_, ci) => `<td class="px-2 py-1 whitespace-pre">${esc(r[ci] ?? '')}</td>`).join('')}
+    </tr>`;
+  }).join('');
+  const notes = [
+    `As ${P.source === 'Clipboard' ? 'pasted' : 'read from ' + esc(P.source || 'the file')}: ${total} row${total !== 1 ? 's' : ''} × ${width} column${width !== 1 ? 's' : ''}. Changes in section 3 do not change this view.`,
+    P.hasHeader ? 'Row 1 (blue) is used as column names.' : 'No header row: every row is a label.',
+    total > shown.length ? `The first ${shown.length} rows are shown.` : '',
+    'Empty rows are skipped when reading.',
+  ].filter(Boolean).join(' ');
+  box.innerHTML = `
+    <p class="text-xs text-gray-500 mb-1.5">${notes}</p>
+    <div class="overflow-auto max-h-72 border border-gray-200 rounded-lg bg-white">
+      <table class="text-xs font-mono">${head}${body}</table>
+    </div>`;
+}
+
+/**
  * Remove data: the one way to get rid of the current table, also to load other
  * data. Deletes the table (rows, cell edits) after asking; the paste and upload
  * box then appears for new data. The column assignments stay remembered
@@ -4768,6 +4831,7 @@ function clearPaste() {
   if (n && !confirm(`Remove the ${n} row${n !== 1 ? 's' : ''}${P.source ? ` from ${P.source}` : ''}? Then paste or upload new data. Your column assignments are remembered.`)) return;
   S.lastUsed.paste = null;
   pasteWorkbook = null;
+  pasteOriginalOpen = false;
   save();
   renderPastePane();
   clearLabelaryCache();
@@ -4862,6 +4926,8 @@ function createManualTable() {
   P.rows = Array.from({ length: rows }, () => P.headers.map(() => ''));
   P.hasHeader = true;
   P.source = 'Manual entry';
+  delete P.raw; delete P.rawTotal;
+  pasteOriginalOpen = false;
   pasteWorkbook = null;
   save();
   setPasteStatus('');
@@ -4893,6 +4959,11 @@ function renderPastePane() {
   document.getElementById('paste-grid-card').classList.toggle('hidden', !loaded);
   const hdr = document.getElementById('paste-has-header');
   if (hdr) hdr.checked = loaded ? P.hasHeader !== false : S.lastUsed.pasteHasHeader !== false;
+
+  const hasRaw = loaded && Array.isArray(P.raw) && P.raw.length > 0;
+  document.getElementById('paste-original-btn')?.classList.toggle('hidden', !hasRaw);
+  if (!hasRaw) pasteOriginalOpen = false;
+  renderPasteOriginal();
 
   if (!loaded) return;
 

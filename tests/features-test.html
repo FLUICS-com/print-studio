@@ -102,6 +102,30 @@ const clickHandler = (name, nth = 0) => {
   check('also after reload plus Remove data', $('paste-has-header').checked === false);
   $('paste-has-header').checked = true; w.onPasteHeaderToggle(true);
 
+  // ── View original data ─────────────────────────────────────────────────────
+  $('paste-has-header').checked = true;
+  await paste('Name;Lot\nBuffer A;L1\n\nBuffer B;L2');
+  w.setPasteCell(0, 0, 'EDITED');
+  check('"View original data" is offered after a paste', !$('paste-original-btn').classList.contains('hidden'));
+  w.togglePasteOriginal(); await wait(50);
+  const orig = $('paste-original').innerText;
+  check('it shows the rows as pasted, header included, without the edit', /Name/.test(orig) && /Buffer A/.test(orig) && !/EDITED/.test(orig) && /Row 1 \(blue\) is used as column names/.test(orig), orig.slice(0, 120));
+  $('paste-has-header').checked = false; w.onPasteHeaderToggle(false); await wait(50);
+  check('switching the header row does not change the original', /No header row/.test($('paste-original').innerText) && /Buffer A/.test($('paste-original').innerText));
+  $('paste-has-header').checked = true; w.onPasteHeaderToggle(true);
+  await loadApp(); await wait(300); w.confirm = () => true; w.setPrintMode('paste'); await wait(100);
+  check('the original survives a reload', !$('paste-original-btn').classList.contains('hidden') && S().lastUsed.paste.raw.length === 3);
+  const files2 = []; w.HTMLAnchorElement.prototype.click = function () { files2.push(this); };
+  const blobs2 = new Map(); const ou = w.URL.createObjectURL; w.URL.createObjectURL = b => { const u = ou.call(w.URL, b); blobs2.set(u, b); return u; };
+  w.exportState('share'); w.exportState('backup');
+  const exps = await Promise.all(files2.map(f => blobs2.get(f.href).text().then(JSON.parse)));
+  check('the original is not written to exports', exps.every(e => !('raw' in (e.lastUsed.paste || {}))));
+  w.clearPaste(); await wait(50);
+  check('Remove data removes the original too', $('paste-original-btn').classList.contains('hidden') && $('paste-original').classList.contains('hidden'));
+  w.prompt = () => '2'; w.createManualTable(); await wait(50);
+  check('manual entry has no original to show', $('paste-original-btn').classList.contains('hidden'));
+  w.clearPaste(); await wait(50);
+
   // ── Print range ─────────────────────────────────────────────────────────────
   w.setPrintMode('batch'); await wait(150);
   const total = w.buildLabels().length;
