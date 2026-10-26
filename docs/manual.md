@@ -192,6 +192,7 @@ Releases are published in the GitHub repository [FLUICS-com/print-studio](https:
 - Paste to Print: **View original data** shows what was actually pasted or uploaded.
 - **Export** leaves out the pasted table (column assignments stay); **Private backup** keeps it.
 - Paste to Print remembers your column assignments by column name, across reloads and new pastes or uploads; switching **First row contains column names** keeps them, and the setting itself is remembered.
+- A fresh install (and **Reset**) opens in **Single Print** with the template *Type 1 Labels (qr code)*.
 - New factory label templates (after **Reset** or on a fresh install): the text fields of Type 1 (text only), Type 4 and Type 12 print on one line instead of a text block. Your own saved templates are not changed by the update.
 - The browser tab shows *FLUICS PRINT Studio* without the version.
 

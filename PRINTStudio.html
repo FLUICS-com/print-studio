@@ -805,6 +805,7 @@
 <li>Paste to Print: <strong>View original data</strong> shows what was actually pasted or uploaded.</li>
 <li><strong>Export</strong> leaves out the pasted table (column assignments stay); <strong>Private backup</strong> keeps it.</li>
 <li>Paste to Print remembers your column assignments by column name, across reloads and new pastes or uploads; switching <strong>First row contains column names</strong> keeps them, and the setting itself is remembered.</li>
+<li>A fresh install (and <strong>Reset</strong>) opens in <strong>Single Print</strong> with the template <em>Type 1 Labels (qr code)</em>.</li>
 <li>New factory label templates (after <strong>Reset</strong> or on a fresh install): the text fields of Type 1 (text only), Type 4 and Type 12 print on one line instead of a text block. Your own saved templates are not changed by the update.</li>
 <li>The browser tab shows <em>FLUICS PRINT Studio</em> without the version.</li>
 </ul>
@@ -943,6 +944,7 @@
  *        checkbox is switched, which is remembered in pasteHasHeader), one
  *        Remove data button, View original data (P.raw, read-only, not
  *        exported), new default label templates (text fields without ^TB),
+ *        fresh installs open in Single Print with Type 1 Labels (qr code),
  *        Export leaves out the pasted table (Private backup keeps it),
  *        tab title without
  *        version. Printer problems reported at the top level of a 200 answer
@@ -1221,9 +1223,9 @@ const DEFAULTS = {
   "auditLog": [],
   "lastUsed": {
     "printer": "",
-    "template": "6a5a4362-bc7d-4c34-add5-d4210f3c007b",
+    "template": "560bcf92-1d23-423f-99b1-699e3f50c297",
     "varInputs": {},
-    "mode": "batch",
+    "mode": "single",
     "paste": null,
     "single": {
       "fields": [
@@ -1375,7 +1377,7 @@ const DEFAULTS = {
     },
     "byMode": {
       "single": {
-        "template": "bef76de0-371d-42e5-a9fc-7d56c7d6e220",
+        "template": "560bcf92-1d23-423f-99b1-699e3f50c297",
         "printer": ""
       },
       "paste": {
