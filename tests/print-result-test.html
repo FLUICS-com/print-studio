@@ -81,7 +81,7 @@ function loadApp() {
   reply = chunk => ({ status: 200, body: { status: 'OK', printerStatus: '01', labels: chunk.map((l, i) => ({ jobID: l.id, status: i < 2 ? 'OK' : 'error' })) } });
   await w.printLabels();
   check('HTTP 200 with failed labels is not success', lastAudit().status === 'partial', status());
-  check('message names the labels to print again', /labels 1-2\)/.test(status()) && /Labels 3-5 were not printed/.test(status()) && /Labels 3-5 are entered under Labels to print/.test(status()), status());
+  check('message names the labels to print again', /labels 1-2\)/.test(status()) && /Labels 3-5 were not printed/.test(status()) && /Labels 3-5 are entered as print range/.test(status()), status());
   check('the rest is entered as print range', w.document.getElementById('print-range').value === '3-5');
   w.document.getElementById('print-range').value = '';
 
@@ -91,7 +91,40 @@ function loadApp() {
   reply = chunk => ({ status: 200, body: { status: 'OK', printerStatus: '04', error: '002', details: 'Printer error!', labels: chunk.map(l => ({ jobID: l.id, status: 'OK' })) } });
   await w.printLabels();
   check('printer error with OK labels is not reported as success', lastAudit().status === 'partial' && !/✓/.test(status()), status());
-  check('the printer message is shown', /printer status 04: the printer lid is open/.test(status()) && /Printer error!/.test(status()) && /may not have come out/.test(status()), status());
+  check('the printer message is shown', /printer status 04: the printer lid is open/.test(status()) && /Printer error!/.test(status()) && /may or may not have printed/.test(status()), status());
+  w.document.getElementById('print-range').value = '';
+
+  // 2d. Printer offline according to the quick status check: nothing is sent, said at once.
+  const realFetch = w.fetch;
+  requests.length = 0;
+  labels = make(3);
+  w.fetch = async (url, opts) => /\/status$/.test(String(url))
+    ? new w.Response(JSON.stringify({ connected: false, printerState: { connected: false }, details: 'Device does not respond' }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    : realFetch(url, opts);
+  await w.printLabels();
+  check('offline printer is reported at once, nothing sent', requests.length === 0 && /is offline \(Device does not respond\)/.test(status()) && lastAudit().status === 'error', status());
+
+  // 2e. Printer reports a problem before printing: asked, nothing sent when declined.
+  w.fetch = async (url, opts) => /\/status$/.test(String(url))
+    ? new w.Response(JSON.stringify({ connected: true, printerState: { connected: true, printerStatus: '01' } }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    : realFetch(url, opts);
+  let asked = '';
+  w.confirm = m => { asked = m; return false; };
+  await w.printLabels();
+  check('printer problem before printing is asked about', requests.length === 0 && /labels are empty or jammed/.test(asked) && /Not printed/.test(status()), status());
+  w.confirm = () => true;
+
+  // 2f. No answer: the app stops waiting and says so (timeout shortened for the test).
+  w.eval('PRINT_TIMEOUT_MS = 300');
+  w.fetch = async (url, opts = {}) => {
+    if (/\/status$/.test(String(url))) return new w.Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+    if (/\/batchprint$/.test(String(url))) return new Promise((_, reject) => opts.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))));
+    return realFetch(url, opts);
+  };
+  await w.printLabels();
+  check('no answer: not stuck on Sending, labels named as unsure', /No answer from printer/.test(status()) && /may or may not have printed/.test(status()) && !w.document.getElementById('print-btn').disabled, status());
+  w.eval('PRINT_TIMEOUT_MS = 45000');
+  w.fetch = realFetch;
   w.document.getElementById('print-range').value = '';
 
   // 2c. An unexpected error inside the print code is shown, not swallowed.

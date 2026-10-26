@@ -393,7 +393,7 @@
       <div class="mt-4 space-y-3">
         <!-- Print range: shown for jobs with more than one label -->
         <div id="print-range-row" class="hidden flex flex-wrap items-center gap-x-3 gap-y-1">
-          <label for="print-range" class="text-sm text-gray-600">Labels to print <span class="text-gray-400">(optional)</span></label>
+          <label for="print-range" class="text-sm text-gray-600"><span class="text-gray-400">Optional:</span> Select print range</label>
           <input id="print-range" type="text" inputmode="numeric" autocomplete="off" class="field-input w-56" placeholder="All, or e.g. 1-5, 8" oninput="syncPrintButton()">
           <span id="print-range-info" class="text-xs text-gray-500"></span>
         </div>
@@ -728,8 +728,9 @@
 <p>A yellow warning appears when a template placeholder has no value, for example <em>${BATCH_ID} (empty in 3 of 25)</em>. Fix the data or the mapping before printing. More than 100 labels are sent in several requests automatically; a red note appears when a job has more than 1,000 labels, which is more than one job may print.</p>
 <h3>3.6 Printing</h3>
 <p>Select template and printer, check the preview, click <strong>Print</strong>. The button shows the number of labels. The result is shown below the button and written to the audit log, also when the print fails.</p>
-<p><strong>Labels to print (optional).</strong> When a job has more than one label, a field above the buttons lets you print only some of them: enter label numbers from the preview, for example <code>1-5, 8, 10-12</code>. Leave it empty to print all. The buttons show how many labels will be printed (<em>Print 6 labels</em>), and numbers outside the job are flagged. Counters, dates and all other values stay exactly as in the full job, so label 8 is printed with the same running number it has in the preview. <strong>Save as PDF</strong> uses the same range. The field empties itself after a successful print and when you switch the print mode.</p>
-<p>A label counts as printed only when the printer confirms it: the print service reports a result per label, and labels reported with an error (for example <em>labels are empty or jammed</em>, <em>the printer lid is open</em>) or not confirmed in time are listed by number. Problems reported by the printer itself (labels empty or jammed, ribbon, lid open, printer busy) are shown with the printer's status code and text, for example <em>Printer problem: printer status 01: labels are empty or jammed</em>. The message says which labels were printed, which were not, and, when the printer reports a problem without saying which labels came out, which labels may be missing so you can check them. The labels still to print are entered under <strong>Labels to print</strong>, for example <em>2 of 5 labels printed (labels 1-2). Labels 3-5 were not printed. Labels 3-5 are entered under Labels to print</em>: after fixing the printer, one more click on <strong>Print</strong> prints only those. The audit log shows the job as <em>Partly</em>. Unexpected errors are shown as <em>Print failed: …</em>; the message box below the buttons scrolls into view. A local print server that does not report per label is accepted, and the message says that the labels were not confirmed one by one.</p>
+<p><strong>Optional: Select print range.</strong> When a job has more than one label, a field above the buttons lets you print only some of them: enter label numbers from the preview, for example <code>1-5, 8, 10-12</code>. Leave it empty to print all. The buttons show how many labels will be printed (<em>Print 6 labels</em>), and numbers outside the job are flagged. Counters, dates and all other values stay exactly as in the full job, so label 8 is printed with the same running number it has in the preview. <strong>Save as PDF</strong> uses the same range. The field empties itself after a successful print and when you switch the print mode.</p>
+<p>A label counts as printed only when the printer confirms it: the print service reports a result per label, and labels reported with an error (for example <em>labels are empty or jammed</em>, <em>the printer lid is open</em>) or not confirmed in time are listed by number. Problems reported by the printer itself (labels empty or jammed, ribbon, lid open, printer busy) are shown with the printer's status code and text, for example <em>Printer problem: printer status 01: labels are empty or jammed</em>. The message says which labels were printed, which were not, and, when the printer reports a problem without saying which labels came out, which labels may be missing so you can check them. The labels still to print are entered in the print range field, for example <em>2 of 5 labels printed (labels 1-2). Labels 3-5 were not printed. Labels 3-5 are entered as print range</em>: after fixing the printer, one more click on <strong>Print</strong> prints only those. The audit log shows the job as <em>Partly</em>. Unexpected errors are shown as <em>Print failed: …</em>; the message box below the buttons scrolls into view.</p>
+<p>Before sending, the app asks the print service for the printer's status (a few seconds). If the printer is <strong>offline</strong>, it says so at once and sends nothing. If the printer reports a problem (for example labels empty), it asks whether to print anyway. While the labels are sent, the message shows the seconds waited. If the printer does not answer within 45 seconds, the app stops waiting and says that the labels may or may not have printed: check the printer before printing them again. A local print server that does not report per label is accepted, and the message says that the labels were not confirmed one by one.</p>
 <p>Limits, checked before anything is sent:
 - Jobs with more than 500 labels ask for confirmation, to catch a typo in a number of labels or a Copies cell.
 - One job prints at most 1,000 labels; split bigger jobs.
@@ -795,7 +796,8 @@
 <p>Releases are published in the GitHub repository <a target="_blank" class="text-blue-600 underline" href="https://github.com/FLUICS-com/print-studio">FLUICS-com/print-studio</a>, each as a tag (<code>v1.0</code>, <code>v1.1</code>, …) with the app (<code>PRINTStudio.html</code>), this manual and an example configuration. The version is shown in the footer and is written into every exported configuration (<code>appVersion</code>) and into every audit entry. Newer versions read configurations exported from older versions; the settings are converted automatically on import. To update: export your configuration in the old version, open the new file, import the configuration. If both files are opened from the same folder in the same browser, they share the stored settings, so the new version picks them up without an import.</p>
 <p><strong>Version 1.2</strong> (October 2026):</p>
 <ul>
-<li><strong>Labels to print</strong> (optional): print or save only some labels of a job (<code>1-5, 8</code>); after a partly failed print the missing labels are entered there.</li>
+<li><strong>Optional: Select print range</strong>: print or save only some labels of a job (<code>1-5, 8</code>); after a partly failed print the missing labels are entered there.</li>
+<li>An offline printer is reported at once (status check before sending) instead of leaving <em>Sending…</em> on screen; the app waits at most 45 seconds for an answer.</li>
 <li>Printer problems (out of labels, lid open, ribbon, busy) are now always shown; before, they were hidden when the print service had accepted the labels.</li>
 <li>Label templates are edited inside their card instead of a pop-up; <strong>Clone</strong> copies a template.</li>
 <li>Paste to Print remembers your column assignments by column name, across reloads and new pastes or uploads.</li>
@@ -936,7 +938,10 @@
  *        version. Printer problems reported at the top level of a 200 answer
  *        (error / printerStatus / details) are shown; labels the printer
  *        accepted but may not have printed are named; unexpected errors in
- *        printLabels are shown instead of failing silently.
+ *        printLabels are shown instead of failing silently. Status check
+ *        (GET /{LID}/status) before sending: offline printers are reported at
+ *        once; print requests time out after 45 s (the API waits up to 120 s)
+ *        with the labels named as unsure; live elapsed seconds while sending.
  *   v11  Version 1.1, safety release after an external review: per-label
  *        print results (labels[].status), copies checked (^PQ 1..10, 1,000 per
  *        job, requests of at most 100 copies), ZPL values escaped per field
@@ -1112,6 +1117,11 @@ const LARGE_JOB = 500;
 // label ids at most 50 characters. MAX_JOB_COPIES is this app's own ceiling
 // for one print job, so a wrong copies value cannot empty a label roll.
 const PQ_MAX_PER_LABEL = 10;
+// How long to wait: the quick status check before printing, and one print
+// request (the API answers 408 after its own timeout, often only after 30 s
+// to 120 s when the printer is offline).
+let STATUS_TIMEOUT_MS = 8000;    // let: the tests shorten them
+let PRINT_TIMEOUT_MS = 45000;
 const COPIES_PER_REQUEST = 100;
 const MAX_JOB_COPIES = 1000;
 /**
@@ -2243,10 +2253,28 @@ function importState(file) {
  */
 async function apiFetch(path, opts = {}) {
   if (!S.settings.apiKey) throw new Error('No API key. Open Settings, Connect printer, first');
-  const res = await fetch(`${S.settings.baseUrl}${path}`, {
-    ...opts,
-    headers: { 'x-api-key': S.settings.apiKey, ...(opts.headers || {}) }
-  });
+  // opts.timeoutMs: give up waiting (the API itself waits up to 120 s for an
+  // offline printer). The error then has .timeout = true.
+  const { timeoutMs, ...fetchOpts } = opts;
+  const ctrl = timeoutMs ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+  let res;
+  try {
+    res = await fetch(`${S.settings.baseUrl}${path}`, {
+      ...fetchOpts,
+      ...(ctrl ? { signal: ctrl.signal } : {}),
+      headers: { 'x-api-key': S.settings.apiKey, ...(fetchOpts.headers || {}) }
+    });
+  } catch (e) {
+    if (ctrl?.signal.aborted) {
+      const err = new Error(`no answer within ${Math.round(timeoutMs / 1000)} s`);
+      err.timeout = true;
+      throw err;
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
   let body;
   try { body = await res.json(); } catch { body = null; }
   if (!res.ok) {
@@ -3145,7 +3173,44 @@ async function printLabelsInner() {
 
   const btn = document.getElementById('print-btn');
   btn.disabled = true;
-  setStatus('Sending…', 'info');
+  const printerName = document.getElementById('printer-select').selectedOptions[0]?.textContent || lid;
+
+  // Quick status check first (the API answers from its database within
+  // seconds): an offline printer is reported at once instead of after a long
+  // wait. If the check itself fails, printing goes ahead.
+  setStatus(`Checking printer ${printerName}…`, 'info');
+  try {
+    const st = await apiFetch(`/${lid}/status`, { timeoutMs: STATUS_TIMEOUT_MS });
+    const connected = st?.connected ?? st?.printerState?.connected;
+    if (connected === false) {
+      btn.disabled = false;
+      const msg = `Printer ${printerName} is offline${st.details ? ` (${st.details})` : ''}. Nothing was sent. Check that the printer and its print box are switched on and connected, then print again.`;
+      setStatus(msg, 'error');
+      addAuditEntry({ count: labels.length, lid, tmplName: tmpl.name, groupName: printMode === 'bundle' ? (currentBundle()?.name || '') : '', mode: printMode, source: printMode === 'paste' ? (pasteState().source || '') : '', zpl: [], status: 'error', error: msg });
+      return;
+    }
+    const ps = String(st?.printerState?.printerStatus ?? st?.printerStatus ?? '');
+    if (ps && ps !== '00' && !confirm(`Printer ${printerName} reports status ${ps}${PRINTER_STATUS_TEXT[ps] ? ': ' + PRINTER_STATUS_TEXT[ps] : ''}. Print anyway?`)) {
+      btn.disabled = false;
+      setStatus(`Not printed: printer ${printerName} reports status ${ps}${PRINTER_STATUS_TEXT[ps] ? ' (' + PRINTER_STATUS_TEXT[ps] + ')' : ''}. Fix it (then press the feed button to reset the status) and print again.`, 'error');
+      return;
+    }
+  } catch (e) {
+    if (e.httpStatus === 403 || e.httpStatus === 404) {
+      btn.disabled = false;
+      return setStatus(e.httpStatus === 403 ? 'Access denied, check your API key.' : `Printer not found, it may no longer be linked to your API key (${e.message}).`, 'error');
+    }
+    // Status check unavailable (old API, local print server, network hiccup): print anyway.
+  }
+
+  // Live elapsed time while waiting for the printer.
+  const started = Date.now();
+  const sendingText = () => `Sending ${labels.length} label${labels.length !== 1 ? 's' : ''} to ${printerName}… ${Math.round((Date.now() - started) / 1000)} s`;
+  setStatus(sendingText(), 'info');
+  const ticker = setInterval(() => {
+    const el = document.getElementById('print-status');
+    if (el && /^Sending/.test(el.textContent)) el.textContent = sendingText();
+  }, 1000);
 
   // Persist selections so they survive a reload even if the print fails.
   S.lastUsed.printer  = lid;
@@ -3167,11 +3232,20 @@ async function printLabelsInner() {
   let unconfirmed = 0, error = null, problem = '';
   try {
     for (const chunk of printChunks(payload)) {
-      const res = await apiFetch(`/${lid}/batchprint`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(chunk)
-      });
+      let res;
+      try {
+        res = await apiFetch(`/${lid}/batchprint`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(chunk),
+          timeoutMs: PRINT_TIMEOUT_MS
+        });
+      } catch (e) {
+        // No answer in time, or the printer box timed out (408): these labels
+        // may or may not have printed.
+        if (e.timeout || e.httpStatus === 408) chunk.forEach(p => unsureIdx.push(index.get(p.id)));
+        throw e;
+      }
       if (!Array.isArray(res?.labels)) {
         // A local print server or an older API without per-label results.
         unconfirmed += chunk.length;
@@ -3196,6 +3270,7 @@ async function printLabelsInner() {
   } catch (e) {
     error = e;
   } finally {
+    clearInterval(ticker);
     btn.disabled = false;
   }
 
@@ -3211,8 +3286,10 @@ async function printLabelsInner() {
   }
   let msg;
   if (error) {
-    msg = error.httpStatus === 408
-      ? `Printer did not respond in time, the device may be offline (${error.message})`
+    msg = error.timeout
+      ? `No answer from printer ${printerName} within ${Math.round(PRINT_TIMEOUT_MS / 1000)} seconds: it may be offline, busy or out of labels`
+      : error.httpStatus === 408
+      ? `Printer ${printerName} did not respond in time, it may be offline (${error.message})`
       : error.httpStatus === 403 ? `Access denied, check your API key`
       : error.httpStatus === 404 ? `Printer not found, it may no longer be linked to your API key`
       : `Print failed: ${error.message}`;
@@ -3222,7 +3299,7 @@ async function printLabelsInner() {
   const again = [...unsureIdx, ...badIdx, ...notSent];
   const parts = [msg + '.'];
   if (okIdx.length) parts.push(`${okIdx.length} of ${n} labels printed (labels ${jobRanges(okIdx)}).`);
-  if (unsureIdx.length) parts.push(`Labels ${jobRanges(unsureIdx)} reached the printer but may not have come out: check the printer and the printed labels.`);
+  if (unsureIdx.length) parts.push(`Labels ${jobRanges(unsureIdx)} may or may not have printed: check the printer and the printed labels before printing them again.`);
   if (badIdx.length) parts.push(`Labels ${jobRanges(badIdx)} were not printed.`);
   if (notSent.length) parts.push(`Labels ${jobRanges(notSent)} were not sent.`);
   if (!okIdx.length && !unsureIdx.length) parts.push('No label was printed.');
@@ -3230,7 +3307,7 @@ async function printLabelsInner() {
   if (again.length && again.length < n) {
     document.getElementById('print-range').value = jobRanges(again);
     syncPrintButton();
-    parts.push(`Labels ${jobRanges(again)} are entered under Labels to print: after fixing the printer, click Print to print only those.`);
+    parts.push(`Labels ${jobRanges(again)} are entered as print range: after fixing the printer, click Print to print only those.`);
   } else if (again.length) {
     parts.push('After fixing the printer, click Print to print the job again.');
   }
