@@ -624,7 +624,7 @@
         <button onclick="closeHelp()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
       </div>
       <div class="help overflow-auto px-6 py-5" id="help-content">
-<h2 class="text-base font-semibold text-gray-900 mb-2">FLUICS PRINT Studio v1.3: User Manual</h2>
+<h2 class="text-base font-semibold text-gray-900 mb-2">FLUICS PRINT Studio v1.2: User Manual</h2>
 <p>PRINT Studio is a single HTML file that runs in your browser and sends label print jobs to FLUICS online label printers. Nothing is installed and no data is stored on a server: the configuration, the pasted data and the audit log live in your browser's local storage. Only the finished label content is sent to the printer through the FLUICS PRINT cloud API.</p>
 <p>PRINT Studio is open source under the MIT License. Source code and the latest version are at https://github.com/FLUICS-com/print-studio; the complete FLUICS PRINT API documentation (Swagger) is at https://printers.fluics.com/fluics/printapi-docs/prod/. The software is provided as is and used under your own responsibility: check every label in the preview before printing.</p>
 <h3>1. Requirements</h3>
@@ -796,10 +796,6 @@
 <p>The audit log and the pasted data are stored in the browser's local storage for this file location. Opening the same HTML file from a different folder or in a different browser starts with an empty configuration: use export and import to carry it over.</p>
 <h3>6. Versions and updates</h3>
 <p>Releases are published in the GitHub repository <a target="_blank" class="text-blue-600 underline" href="https://github.com/FLUICS-com/print-studio">FLUICS-com/print-studio</a>, each as a tag (<code>v1.0</code>, <code>v1.1</code>, …) with the app (<code>PRINTStudio.html</code>), this manual and an example configuration. The version is shown in the footer and is written into every exported configuration (<code>appVersion</code>) and into every audit entry. Newer versions read configurations exported from older versions; the settings are converted automatically on import. To update: export your configuration in the old version, open the new file, import the configuration. If both files are opened from the same folder in the same browser, they share the stored settings, so the new version picks them up without an import.</p>
-<p><strong>Version 1.3</strong> (October 2026):</p>
-<ul>
-<li>The print range field is smaller and quieter; the Print and PDF buttons show how many labels will be printed.</li>
-</ul>
 <p><strong>Version 1.2</strong> (October 2026):</p>
 <ul>
 <li><strong>Optional: Select print range</strong>: print or save only some labels of a job (<code>1-5, 8</code>); after a partly failed print the missing labels are entered there.</li>
@@ -942,9 +938,8 @@
  *     migration step: customers import configs exported from old versions.
  *
  * Changelog:
- *   v13  Version 1.3: quieter print range (small label and field, placeholder
- *        without "All", no count note next to it; the buttons show the count).
  *   v12  Version 1.2: print range for jobs with several labels (parsePrintRange,
+ *        small and quiet, the buttons show the count;
  *        also for the PDF; prefilled with the missing labels after a partial
  *        print, cleared after a full one), label templates edited inline in
  *        their card with Clone (modal removed), manual paste column choices
@@ -1107,7 +1102,7 @@
 // ── State ──────────────────────────────────────────────────────────────────────
 
 /** App version. Bump together with the release tag (vX.Y). */
-const APP_VERSION = '1.3';
+const APP_VERSION = '1.2';
 
 /**
  * Public links shown in the footer and the manual. Fill in before release;
