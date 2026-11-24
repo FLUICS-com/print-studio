@@ -40,3 +40,12 @@ t('chunks respect 100 copies', () => {
 });
 t('chunks respect 100 labels', () => assert.deepEqual(printChunks(Array.from({ length: 230 }, (_, i) => ({ id: i, data: '' }))).map(x => x.length), [100, 100, 30]));
 t('labelRanges', () => assert.equal(labelRanges([0, 1, 2, 5, 7, 8]), '1-3, 6, 8-9'));
+// ^BQ field data starts with error correction, input mode and a comma (LA,); without it the first 3 characters are lost.
+const qrFields = z => [...z.matchAll(/\^BQ[^^]*\^FD(.*?)\^FS/g)].map(m => m[1]);
+const checkQr = (src, templates) => t(`QR fields in ${src} have the LA, prefix`, () => {
+  const fields = templates.flatMap(x => qrFields(x.zpl));
+  assert.ok(fields.length >= 3);
+  fields.forEach(f => assert.match(f, /^[HQML][AM],/));
+});
+checkQr('the default templates', [...html.matchAll(/^\s*"zpl": (".*"),$/gm)].map(m => ({ zpl: JSON.parse(m[1]) })));
+checkQr('the example config', JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'examples', 'print-studio-config-example.json'), 'utf8')).templates);

@@ -20,7 +20,7 @@
     {
       "id": "560bcf92-1d23-423f-99b1-699e3f50c297",
       "name": "Type 1 Labels (qr code)",
-      "zpl": "^FX T1 25.4 x 12.7 mm cryo ^FS\n^MTT^MUD,300,300\n^PR2\n^MD30\n^PW300\n^LH20,20\n^CF0,25\n^FO95,15^FD${NAME}^FS\n^FO95,80^FD${DATE}^FS\n^FO0,5^BQN,2,4^FD${NAME}^FS",
+      "zpl": "^FX T1 25.4 x 12.7 mm cryo ^FS\n^MTT^MUD,300,300\n^PR2\n^MD30\n^PW300\n^LH20,20\n^CF0,25\n^FO95,15^FD${NAME}^FS\n^FO95,80^FD${DATE}^FS\n^FO0,5^BQN,2,4^FDLA,${NAME}^FS",
       "labelWidth": 1,
       "labelHeight": 0.5,
       "labelDpmm": 12
