@@ -5,8 +5,8 @@ Usage: python3 tools/set_default_templates.py <exported-config.json>
 
 Replaces the `templates` of DEFAULTS in PRINTStudio.html (used after
 "Reset app to factory defaults" and on a fresh install) and of
-examples/print-studio-config-example.json. Only id, name, zpl and the label
-size are taken; nothing else from the export (API key, pasted data, audit
+examples/print-studio-config-example.json. Only id, name, zpl, the label
+size and the design are taken; nothing else from the export (API key, pasted data, audit
 log, column memory) is copied. Users' own saved templates are not touched.
 """
 import json
@@ -15,7 +15,7 @@ import sys
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 src = json.load(open(sys.argv[1], encoding="utf-8"))
-keys = ("id", "name", "zpl", "labelWidth", "labelHeight", "labelDpmm")
+keys = ("id", "name", "zpl", "labelWidth", "labelHeight", "labelDpmm", "design")
 templates = [{k: t[k] for k in keys if k in t} for t in src.get("templates", [])]
 if not templates:
     sys.exit("no templates in " + sys.argv[1])

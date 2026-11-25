@@ -29,6 +29,11 @@
     .mode-card .mode-hint { display: block; font-size: 0.7rem; color: #9ca3af; line-height: 1.25; margin-top: 0.1rem; }
     .mode-card.active .mode-hint { color: #3b82f6; }
     @media (max-width: 639px) { .mode-card .mode-hint { display: none; } .mode-card { padding: 0.55rem 0.6rem; } }
+    /* Design / ZPL code switch of the label editor: one control, both halves the same size */
+    .dz-tabs { display: inline-flex; border: 1px solid #d1d5db; border-radius: 0.375rem; overflow: hidden; background: #fff; }
+    .dz-tabs button { min-width: 5.5rem; padding: 0.375rem 0.75rem; font-size: 0.8125rem; line-height: 1.25; color: #4b5563; text-align: center; white-space: nowrap; }
+    .dz-tabs button:hover { background: #f3f4f6; }
+    .dz-tabs button.active { background: #2563eb; color: #fff; }
     /* Settings panel (gear icon) and manual panel (book icon) */
     .settings-panel { background: #f9fafb; border-radius: 0.5rem; border: 1px solid #e5e7eb; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15); width: 100%; max-width: 72rem; margin: auto; height: 100%; max-height: calc(100vh - 1.5rem); display: flex; overflow: hidden; }
     .settings-side { width: 12rem; flex-shrink: 0; background: white; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; }
@@ -36,6 +41,10 @@
     .snav-btn { text-align: left; padding: 0.5rem 0.75rem; font-size: 0.8125rem; color: #4b5563; border-radius: 0.375rem; cursor: pointer; }
     .snav-btn:hover { background: #f3f4f6; }
     .snav-btn.active { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+    /* Connect printer while no API key is stored */
+    .snav-btn.todo { background: #fef3c7; color: #92400e; font-weight: 600; }
+    .snav-btn.todo::after { content: '!'; float: right; width: 1.15rem; line-height: 1.15rem; margin-left: 0.4rem; border-radius: 50%; background: #d97706; color: #fff; font-size: 0.7rem; text-align: center; }
+    .snav-btn.todo.active { box-shadow: inset 0 0 0 1px #d97706; }
     .settings-content { flex: 1; min-width: 0; overflow: auto; padding: 1.25rem; }
     @media (max-width: 639px) {
       .settings-panel { flex-direction: column; }
@@ -185,9 +194,13 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="field-label">Template</label>
-            <select id="template-select" onchange="refreshPreview()" class="field-input w-full">
+            <select id="template-select" onchange="onTemplateSelect()" class="field-input w-full">
               <option value="">Select template…</option>
             </select>
+            <div id="print-new-design" class="hidden mt-2 text-xs">
+              <button type="button" onclick="newPrintDraft('design')" class="text-blue-600 hover:underline mr-3">+ New label design</button>
+              <button type="button" onclick="newPrintDraft('zpl')" class="text-blue-600 hover:underline">Paste ZPL</button>
+            </div>
           </div>
           <div>
             <label class="field-label">Printer</label>
@@ -205,12 +218,25 @@
         </div>
       </div>
 
+      <!-- Label designer of Single Print (filled by renderTemplates / syncPrintDesigner) -->
+      <div id="print-design" class="hidden">
+        <h2 class="text-sm font-semibold text-gray-700 mb-3 mt-6"><span class="step-no text-gray-400 font-normal mr-1">2</span> Label design</h2>
+        <div id="print-editor"></div>
+      </div>
+
       <!-- Single pane: one row per template placeholder (text / date), prints one label -->
       <div id="single-pane" class="hidden">
-        <h2 class="text-sm font-semibold text-gray-700 mb-3 mt-6"><span class="step-no text-gray-400 font-normal mr-1">2</span> Label content</h2>
+        <h2 class="text-sm font-semibold text-gray-700 mb-3 mt-6"><span class="step-no text-gray-400 font-normal mr-1">3</span> Label content</h2>
         <div class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
-          <p class="text-xs text-gray-400 mb-4">One label. Every row fills one placeholder of the selected label template. <button type="button" onclick="openSettings('templates')" class="text-blue-600 underline">Edit label templates</button></p>
+          <p class="text-xs text-gray-400 mb-4">Every row fills one placeholder of the label.</p>
           <div id="single-rows" class="space-y-4 sm:space-y-2"></div>
+          <div class="mt-4">
+            <label class="field-label" for="single-copies">Identical labels</label>
+            <div class="flex flex-wrap items-center gap-2">
+              <input id="single-copies" type="number" min="1" max="10" placeholder="1" autocomplete="off" class="field-input w-28" oninput="syncPrintButton()">
+              <span id="single-copies-hint" class="text-xs text-gray-400"></span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -218,13 +244,11 @@
       <div id="batch-pane" class="hidden">
         <h2 class="text-sm font-semibold text-gray-700 mb-3 mt-6"><span class="step-no text-gray-400 font-normal mr-1">2</span> Label content</h2>
         <div class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
-          <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
-            <p class="text-xs text-gray-400">Every row fills one placeholder of the selected label template. <button type="button" onclick="openSettings('templates')" class="text-blue-600 underline">Edit label templates</button></p>
-            <div>
-              <label class="field-label">Number of labels</label>
-              <input id="batch-copies" type="number" min="1" max="9999" class="field-input w-28" oninput="onBatchCopies(this.value)">
-            </div>
+          <div class="mb-4">
+            <label class="field-label">Number of labels</label>
+            <input id="batch-copies" type="number" min="1" max="9999" class="field-input w-28" oninput="onBatchCopies(this.value)">
           </div>
+          <p class="text-xs text-gray-400 mb-4">Every row fills one placeholder of the selected label template. <button type="button" onclick="openSettings('templates')" class="text-blue-600 underline">Edit label templates</button></p>
           <div id="batch-rows" class="space-y-4 sm:space-y-2"></div>
         </div>
       </div>
@@ -386,7 +410,7 @@
             <div id="labelary-container" class="relative bg-gray-100 rounded-lg flex items-center justify-center min-h-32 p-4 text-sm text-gray-400 italic cursor-pointer" title="Click to render this label" onclick="onLabelaryContainerClick()">
               Select a template and fill in the form to render a label
             </div>
-            <p class="text-xs text-gray-400 mt-1.5 text-right">Rendered by Labelary when you click the label, label size per template. <button type="button" onclick="openSettings('general')" class="underline hover:text-gray-600">Preview settings</button></p>
+            <p class="text-xs text-gray-400 mt-1.5 text-right">Rendered by <a href="https://labelary.com" target="_blank" rel="noopener" class="underline hover:text-gray-600">Labelary</a> when you click the label, label size per template. <button type="button" onclick="openSettings('general')" class="underline hover:text-gray-600">Preview settings</button></p>
           </div>
         </div>
       </div>
@@ -440,6 +464,19 @@
   </div>
 
   <!-- Settings panel (gear icon): General, Connect printer, Label templates, Notes, Audit Log -->
+  <!-- App dialog: questions and messages (askConfirm, askText, showMessage) -->
+  <dialog id="app-dialog" aria-labelledby="app-dialog-title">
+    <form method="dialog">
+      <h2 id="app-dialog-title"></h2>
+      <p id="app-dialog-text"></p>
+      <input id="app-dialog-input" type="text" class="field-input w-full mt-3 hidden" autocomplete="off" aria-labelledby="app-dialog-text">
+      <div class="flex justify-end gap-2 mt-4">
+        <button type="button" id="app-dialog-cancel" class="btn-ghost text-sm">Cancel</button>
+        <button type="submit" id="app-dialog-ok" value="ok" class="btn-primary text-sm">OK</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="settings-modal" class="modal-backdrop hidden" style="z-index:40;align-items:stretch;padding:0.75rem">
     <div class="settings-panel">
       <div class="settings-side">
@@ -448,8 +485,8 @@
           <button onclick="closeSettings()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none sm:hidden">&times;</button>
         </div>
         <nav class="settings-nav">
-          <button onclick="showSection('general')"   id="snav-general"   class="snav-btn">General</button>
           <button onclick="showSection('connect')"   id="snav-connect"   class="snav-btn">Connect printer</button>
+          <button onclick="showSection('general')"   id="snav-general"   class="snav-btn">General</button>
           <button onclick="showSection('templates')" id="snav-templates" class="snav-btn">Label templates</button>
           <button onclick="showSection('notes')"     id="snav-notes"     class="snav-btn">Notes</button>
           <button onclick="showSection('audit')"     id="snav-audit"     class="snav-btn">Audit Log</button>
@@ -624,14 +661,14 @@
         <button onclick="closeHelp()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
       </div>
       <div class="help overflow-auto px-6 py-5" id="help-content">
-<h2 class="text-base font-semibold text-gray-900 mb-2">FLUICS PRINT Studio v1.2: User Manual</h2>
+<h2 class="text-base font-semibold text-gray-900 mb-2">FLUICS PRINT Studio v1.3: User Manual</h2>
 <p>PRINT Studio is a single HTML file that runs in your browser and sends label print jobs to FLUICS online label printers. Nothing is installed and no data is stored on a server: the configuration, the pasted data and the audit log live in your browser's local storage. Only the finished label content is sent to the printer through the FLUICS PRINT cloud API.</p>
 <p>PRINT Studio is open source under the MIT License. Source code and the latest version are at https://github.com/FLUICS-com/print-studio; the complete FLUICS PRINT API documentation (Swagger) is at https://printers.fluics.com/fluics/printapi-docs/prod/. The software is provided as is and used under your own responsibility: check every label in the preview before printing.</p>
 <h3>1. Requirements</h3>
 <ul>
 <li>A current browser (Chrome, Edge, Firefox or Safari). The app runs from the file itself (double-click <code>PRINTStudio.html</code>), from any web server, and on phones or tablets via a server URL (see Installation below).</li>
 <li>A FLUICS PRINT API key. Request one at connect@fluics.com.</li>
-<li>Internet access for printing, for the visual label preview (Labelary) and for the first load of the Excel reader. Copy and paste and CSV files also work offline.</li>
+<li>Internet access for printing, for the visual label preview (Labelary) and for the first load of the Excel reader and of the barcode drawing in the label designer. Copy and paste and CSV files also work offline.</li>
 </ul>
 <h3>2. Installation and first start</h3>
 <p>The app is one file with no server-side code. Three ways to run it:</p>
@@ -643,7 +680,7 @@
 <p>First start:</p>
 <ol>
 <li>Open the HTML file. The book icon (top right) opens this manual, the gear icon opens the settings; the version number is in the footer.</li>
-<li>As long as no API key is stored, the printer field under 1 shows a link <em>No printer connected</em> that opens the right place: the gear icon, section <strong>Connect printer</strong>. Enter your API key there; it is masked, the eye icon shows it. The field is deliberately not a browser password field, so no browser offers to save the key as a password. Leave the base URL unchanged unless FLUICS told you otherwise. Click <strong>Save and load printers</strong>. Under <strong>General</strong>, pick your date format and whether label sizes are shown in inches or millimetres.</li>
+<li>As long as no API key is stored, the printer field under 1 shows a link <em>No printer connected</em> that opens the right place: the gear icon, section <strong>Connect printer</strong> (the first one, highlighted while no key is stored). Enter your API key there; it is masked, the eye icon shows it. The field is deliberately not a browser password field, so no browser offers to save the key as a password. Leave the base URL unchanged unless FLUICS told you otherwise. Click <strong>Save and load printers</strong>. Under <strong>General</strong>, pick your date format and whether label sizes are shown in inches or millimetres.</li>
 <li>Check the <strong>Label templates</strong> section. A fresh installation already contains the FLUICS demo setup: the templates <em>Type 1 Labels (text only)</em>, <em>Type 1 Labels (qr code)</em>, <em>Type 4 Labels (qr code)</em> and <em>Type 12 Labels (circle+rectangle)</em>, plus two example bundles. Matching labels and ribbons are at https://fluics.com/labels.</li>
 <li>If you received a configuration file (<code>fluics-print-studio-config-….json</code>), import it in the <strong>General</strong> section → Import. Templates, placeholders, bundles and printer names are restored; a shared file contains no API key, so enter your own under <strong>Connect printer</strong>.</li>
 </ol>
@@ -680,9 +717,33 @@
 </tr>
 </tbody>
 </table>
-<p>Click a card to switch. A fresh installation opens in Batch Print; afterwards the last used mode is remembered.</p>
+<p>Click a card to switch. A fresh installation opens in Single Print with a label design you can change or print right away; afterwards the last used mode is remembered.</p>
 <h3>3.1 Single Print</h3>
-<p>The quickest way to one label: 1 Label template and printer, 2 Label content (one row per placeholder of the template, text or date), 3 Preview, then <strong>Print label</strong> or <strong>Save as PDF</strong>. Values are remembered.</p>
+<p>Single Print is the place to <strong>design a label and print it</strong>, and to prepare label templates for the other modes. The screen is numbered: 1 Label template and printer, 2 Label design, 3 Label content, 4 Preview.</p>
+<p>What the design (or the ZPL code) shows is what gets printed, also before it is saved. The audit log then adds <em>(unsaved)</em> to the template name.</p>
+<h4>Section 1: Choose or start a label</h4>
+<p>Choose a saved template, or start a new label: <strong>+ New label design</strong> opens an empty label on the canvas, <strong>Paste ZPL</strong> an empty code field for ZPL from elsewhere. Choosing another template, another print mode or Settings, Label templates asks first when there are unsaved changes. Reloading the page drops them without asking.</p>
+<h4>Section 2: Label design</h4>
+<p>The switch next to the template name changes between <strong>Design</strong> and <strong>ZPL code</strong>.</p>
+<p><strong>Design</strong> shows the label on a canvas:</p>
+<ul>
+<li><strong>Label size</strong>: the FLUICS label sizes with the label types they fit, or <strong>Own size…</strong> with width, height and margin. The GHS labels (Type 6 and 7) are upright, because they run through the printer with the narrow side across; rotate elements to read along the long side.</li>
+<li><strong>+ Text, + QR code, + DataMatrix, + Code 128</strong> add an element. Drag it to move it, drag the blue corner to resize it, use the arrow keys to move it by 1 dot (with Shift by 10), Delete to remove it, <strong>Undo</strong> (Ctrl+Z / Cmd+Z) to step back.</li>
+<li>The fields next to the canvas change the selected element: content, position, size, rotation (not for QR codes). Click a placeholder such as <code>${NAME}</code> to insert it; anything you write as <code>${…}</code> becomes a placeholder. 300 dots are 25.4 mm.</li>
+<li><strong>Text blocks</strong>: with a <strong>Block width</strong> above 0, text wraps inside the block, at spaces, in long words after a hyphen and otherwise anywhere, with the chosen alignment. PRINT Studio breaks the lines itself when printing. If the text needs more than <strong>Max. lines</strong>, the label is refused with a message instead of being cut off.</li>
+<li>The <strong>dotted line</strong> is the recommended margin. Elements may cross it, a warning then says that parts near the edge can be cut off. A QR code can start 10 dots below the label edge at the highest.</li>
+<li>The canvas is drawn in your browser, nothing is sent out. The printer's own font differs slightly: check every design with a test print, and that all codes scan. A DataMatrix code cannot contain a backtick character.</li>
+</ul>
+<p>Designs are made for 300 dpi printers.</p>
+<p><strong>ZPL code</strong> shows the code the design produces, or the code of a template written in ZPL. You can change it and print it as shown. Next to the code the label is rendered by Labelary, if the rendered preview is switched on (see 3.5). Set width, height and resolution below it; they are used for the preview.</p>
+<ul>
+<li>The designer can only open its own designs. After changing the code by hand, going back to <strong>Design</strong> asks whether to start with an empty design, and saving keeps the code without a design.</li>
+<li><strong>Pasted ZPL</strong> may contain <code>^XA</code> and <code>^XZ</code>, they are removed. Code with more than one label is refused. Commands that can change the printer or its stored data (for example <code>^JUS</code>) are named in a warning. Every <code>${NAME}</code> becomes a row under Label content. The printer settings (<code>^MT</code>, <code>^MD</code>, <code>^PR</code>, <code>^PW</code>, <code>^LH</code>) are printed as pasted: add those of your other templates if they are missing.</li>
+<li>In pasted ZPL, a word that is wider than its <code>^FB</code> text block is split by the printer, which can print an extra character there (seen as ð on a FLUICS printer). Designed labels avoid this.</li>
+</ul>
+<p><strong>Saving.</strong> A new label has <strong>Save template</strong>. A saved one has <strong>Save changes</strong> (overwrites it) and <strong>Save as new template</strong> (keeps it and adds a new one). Saved templates are available in all print modes; <strong>Save and use in</strong> Paste to Print, Batch Print or Label Bundles saves and takes you there with the label selected (Label Bundles starts a new bundle). <strong>Discard changes</strong> goes back to the saved state. Copying, sorting and deleting templates is done under Settings, Label templates.</p>
+<h4>Section 3: Label content</h4>
+<p>One row per placeholder of the label, text or date; the values appear on the canvas while you type and are remembered. <strong>Identical labels</strong> prints the label 1 to 10 times (<code>^PQ</code>); for more, use Batch Print. Leave it empty to use the number in the ZPL code, if there is one, otherwise 1. The field empties itself when you change the label or the print mode.</p>
 <h3>3.2 Paste to Print</h3>
 <p>Paste to Print prints one label per row of a table. The screen is numbered: 1 Label template and printer, 2 Data, 3 Columns and rows, 4 Preview. The <strong>Edit label templates</strong> links open the template editor whenever a placeholder is missing.</p>
 <h4>Section 2: Data</h4>
@@ -709,7 +770,7 @@
 <p><strong>Dates.</strong> Dates from Excel date cells and dates typed as YYYY-MM-DD are printed in the date format set under Settings, General. Any other text (for example 21.04.2026 typed into a cell) is printed as it is.</p>
 <p>The pasted table and the mapping are kept when you close the browser, so you can continue later.</p>
 <h3>3.3 Batch Print</h3>
-<p>Batch Print prints <strong>Number of labels</strong> copies of one label (1 Label template and printer, 2 Label content, 3 Preview). The content is defined row by row: the selected template has exactly one row per placeholder, the placeholder name on the left, its value on the right. Each row has a kind:</p>
+<p>Batch Print prints <strong>Number of labels</strong> copies of one label (1 Label template and printer, 2 Label content, 3 Preview). The number is the first field of section 2. The content below it is defined row by row: the selected template has exactly one row per placeholder, the placeholder name on the left, its value on the right. Each row has a kind:</p>
 <ul>
 <li><strong>Text</strong>: one value for every label. The camera icon scans a barcode or QR code into the field (needs HTTPS and camera permission).</li>
 <li><strong>Date</strong>: the box shows the date exactly as it will be printed, in the format set under Settings, General (the <strong>change date format</strong> link leads there). With <strong>Today</strong> ticked (default) the date follows the current date automatically, also when you print tomorrow. Untick it and click the box or the calendar icon to pick a fixed date.</li>
@@ -774,20 +835,20 @@
 </table>
 <h3>4. Settings (gear icon)</h3>
 <p>The gear icon opens the settings panel with five sections.</p>
-<h3>4.1 General</h3>
+<h3>4.1 Connect printer</h3>
+<p>API key and base URL of the FLUICS PRINT API; <strong>Save and load printers</strong> stores them and fetches the printer list. Below, give each printer a friendly name (for example Laboratory, Office). The name is used in the printer dropdown and in the audit log. While no API key is stored, the section is highlighted and the gear icon opens it directly.</p>
+<h3>4.2 General</h3>
 <ul>
 <li><strong>Date format</strong>: how every date placeholder is printed, in all print modes (for example 2026-04-21, 21.04.2026, 21Apr26).</li>
 <li><strong>Label dimensions</strong>: whether label width and height are shown and entered in inches or millimetres in the template editor. Templates are stored in inches internally, switching the unit converts the display.</li>
-<li><strong>Preview</strong>: switches the Labelary rendering on or off (see 3.5). It is off by default and asks once before label content is sent to labelary.com.</li>
+<li><strong>Preview</strong>: switches the Labelary rendering on or off everywhere (see 3.5): section 4, the ZPL code view of Single Print and the label templates. It is off by default and asks once before label content is sent to labelary.com.</li>
 <li><strong>Reset</strong>: <strong>Reset app to factory defaults</strong> removes everything stored in this browser (settings, API key, templates, bundles, entered values, audit log) and starts again with the demo setup. Export first if you want to keep anything. The same effect: delete the site's data in the browser settings (iPhone: Settings, Safari, Advanced, Website Data; Android Chrome: site settings, Clear and reset).</li>
 <li><strong>Configuration file</strong>: <strong>Export</strong> downloads the setup (templates, placeholders, bundles, printer names, settings) as a JSON file to share with colleagues or FLUICS support; it contains <strong>no API key, no audit log and no pasted data</strong> (the column assignments of Paste to Print are included). <strong>Private backup</strong> downloads the same plus the API key, the audit log with the printed label content and the pasted table, to move to another computer; its file name starts with <code>fluics-print-studio-PRIVATE-backup</code>, keep it to yourself. <strong>Import</strong> restores either file; a file without API key, audit log or pasted table keeps the ones already in this browser, and ids that are not plain letters, digits, <code>-</code> or <code>_</code> make the import stop. The selected printer is not part of the file: printers are loaded live from the API whenever the app is used. Rows for placeholders that exist in none of your templates, and rows that still have their default value, are dropped automatically; the <code>variables</code> block only names the placeholders with a role (date, counter) and a few legacy names. Use <strong>Export</strong> to share the setup or send it to FLUICS support, <strong>Private backup</strong> to move it to another computer. The file name contains the app version and the local date and time down to the second (<code>fluics-print-studio-config-v11-2026-10-13_14-05-33.json</code>), so repeated exports never overwrite each other. Importing a private backup replaces everything in the browser, including the audit log, so make a backup of the current state first if you want to keep it. The app asks before importing and refuses files that are not a PRINT Studio configuration; if an import fails, the previous configuration is kept.</li>
 </ul>
-<h3>4.2 Connect printer</h3>
-<p>API key and base URL of the FLUICS PRINT API; <strong>Save and load printers</strong> stores them and fetches the printer list. Below, give each printer a friendly name (for example Laboratory, Office). The name is used in the printer dropdown and in the audit log.</p>
 <h3>4.3 Label templates</h3>
 <p><strong>Edit ZPL with care.</strong> The template is sent to the printer as is. Keep the printer settings in the template (<code>^MT</code>, <code>^MD</code>, <code>^PR</code>, <code>^PW</code>, <code>^MU</code>: media type, darkness, speed, width, units) as delivered with your printer setup; changing them can spoil labels or misalign the printer. Check every change in the preview. Usage is under your own responsibility. If you need a new or adapted template, write to support@fluics.com or order one at https://fluics.com/product/custom-template/. Labels and ribbons for the FLUICS printers: https://fluics.com/labels.</p>
-<p>A template is the ZPL code of one label plus its size (width, height, printer resolution). To learn ZPL, the Learning ZPL box at the top of the Label templates section and the template editor link to Labelary's <a target="_blank" class="text-blue-600 underline" href="https://labelary.com/zpl.html">introduction with examples</a>, the <a target="_blank" class="text-blue-600 underline" href="https://labelary.com/viewer.html">Labelary online viewer</a> to try code, and Zebra's <a target="_blank" class="text-blue-600 underline" href="https://docs.zebra.com/us/en/printers/software/zpl-pg.html">ZPL programming guide</a> with the complete command reference. Write <code>${NAME}</code> where a value should be printed. Below the ZPL editor all placeholders are listed: the ones used in this template first, then the ones used in your other templates; <strong>click a placeholder to insert it at the cursor</strong>. Two names have a built-in role, shown as a small hint on the chip: the date placeholder (<em>date picker</em>) opens as a date row and the counter placeholder (<em>counter</em>) as a running number. Every placeholder of a saved template is offered in the dropdowns of Single Print, Batch Print, Label Bundles and Paste to Print. The ↑ ↓ buttons on each template card change the order of the templates, which is the order of the template dropdowns.  Do not include <code>^XA</code> and <code>^XZ</code>, the API adds them. Every template card in the overview shows a rendered image of the template (placeholders printed as <code>${…}</code>).</p>
-<p><strong>Edit</strong> opens the editor right inside the template's card (name, size, resolution, ZPL, placeholders, preview); <strong>Save template</strong> stores it, <strong>Cancel</strong> or <strong>Close editor</strong> closes it. One template is edited at a time: if you open another one or leave the section with unsaved changes, the app asks first. <strong>Clone</strong> makes a copy right below the original, named <em>… (copy)</em>, and opens it in the editor: rename it and change what differs, the original stays untouched. <strong>+ Add Template</strong> opens an empty editor at the top of the list. The editor renders the layout once when it opens and again when you leave a field you changed or click the preview box; while you type, the image is only dimmed.</p>
+<p>A template is the ZPL code of one label plus its size (width, height, printer resolution); templates made in the designer also keep their design and open on the canvas (see 3.1). To learn ZPL, the Learning ZPL box at the top of the Label templates section and the template editor link to Labelary's <a target="_blank" class="text-blue-600 underline" href="https://labelary.com/zpl.html">introduction with examples</a>, the <a target="_blank" class="text-blue-600 underline" href="https://labelary.com/viewer.html">Labelary online viewer</a> to try code, and Zebra's <a target="_blank" class="text-blue-600 underline" href="https://docs.zebra.com/us/en/printers/software/zpl-pg.html">ZPL programming guide</a> with the complete command reference. Write <code>${NAME}</code> where a value should be printed. Below the ZPL editor all placeholders are listed: the ones used in this template first, then the ones used in your other templates; <strong>click a placeholder to insert it at the cursor</strong>. Two names have a built-in role, shown as a small hint on the chip: the date placeholder (<em>date picker</em>) opens as a date row and the counter placeholder (<em>counter</em>) as a running number. Every placeholder of a saved template is offered in the dropdowns of Single Print, Batch Print, Label Bundles and Paste to Print. The ↑ ↓ buttons on each template card change the order of the templates, which is the order of the template dropdowns.  Do not include <code>^XA</code> and <code>^XZ</code>, the API adds them. Every template card in the overview shows a rendered image of the template (placeholders printed as <code>${…}</code>); while the rendered preview is off, click the box to switch it on.</p>
+<p><strong>Edit</strong> opens the editor right inside the template's card (name, size, resolution, design or ZPL code, placeholders, preview); <strong>Save template</strong> stores it, <strong>Cancel</strong> or <strong>Close editor</strong> closes it. One template is edited at a time: if you open another one or leave the section with unsaved changes, the app asks first. <strong>Clone</strong> makes a copy right below the original, named <em>… (copy)</em>, and opens it in the editor: rename it and change what differs, the original stays untouched. <strong>+ Add Template</strong> opens an empty editor at the top of the list. The editor renders the layout once when it opens and again when you leave a field you changed or click the preview box; while you type, the image is only dimmed.</p>
 <h3>4.4 Notes</h3>
 <p>A free-text field for ideas and reminders, stored with the configuration.</p>
 <h3>4.5 Audit Log</h3>
@@ -796,6 +857,17 @@
 <p>The audit log and the pasted data are stored in the browser's local storage for this file location. Opening the same HTML file from a different folder or in a different browser starts with an empty configuration: use export and import to carry it over.</p>
 <h3>6. Versions and updates</h3>
 <p>Releases are published in the GitHub repository <a target="_blank" class="text-blue-600 underline" href="https://github.com/FLUICS-com/print-studio">FLUICS-com/print-studio</a>, each as a tag (<code>v1.0</code>, <code>v1.1</code>, …) with the app (<code>PRINTStudio.html</code>), this manual and an example configuration. The version is shown in the footer and is written into every exported configuration (<code>appVersion</code>) and into every audit entry. Newer versions read configurations exported from older versions; the settings are converted automatically on import. To update: export your configuration in the old version, open the new file, import the configuration. If both files are opened from the same folder in the same browser, they share the stored settings, so the new version picks them up without an import.</p>
+<p><strong>Version 1.3</strong> (November 2026):</p>
+<ul>
+<li><strong>Label designer</strong> in Single Print: text, text blocks, QR code, DataMatrix and Code 128 on a canvas, FLUICS label sizes and own sizes. What the canvas shows is printed, also before saving.</li>
+<li><strong>ZPL code view</strong> with a rendered preview next to the code, and <strong>Paste ZPL</strong> to print or save any label code.</li>
+<li><strong>Save as new template</strong>, and <strong>Save and use in</strong> Paste to Print, Batch Print or Label Bundles.</li>
+<li><strong>Identical labels</strong> in Single Print: 1 to 10 copies (<code>^PQ</code>). Labels without placeholders can be printed there, too.</li>
+<li>New factory label templates (after <strong>Reset</strong> or on a fresh install): all four are designs now. The Type 1 QR code template prints <em>Name</em> and <em>Date</em> and encodes <code>${barcode}</code>. Long text in the circle of Type 12 is refused instead of cut off. Your own saved templates are not changed by the update.</li>
+<li><strong>Fixed</strong>: the QR code of the old factory template <em>Type 1 Labels (qr code)</em> left out the first three characters of the name. If you still use a saved copy, replace <code>^FD${NAME}</code> with <code>^FDLA,${NAME}</code> in its line with <code>^BQN</code>.</li>
+<li>Questions and messages appear in the app instead of browser pop-ups.</li>
+<li>Label templates show the preview boxes also while the rendered preview is off; Connect printer comes first in the settings.</li>
+</ul>
 <p><strong>Version 1.2</strong> (October 2026):</p>
 <ul>
 <li><strong>Optional: Select print range</strong>: print or save only some labels of a job (<code>1-5, 8</code>); after a partly failed print the missing labels are entered there.</li>
@@ -861,6 +933,9 @@
 <li><strong>Numbers or dates look different than in Excel</strong>: Excel cell formatting is not transferred. Dates are read as real dates and printed in the configured date format; formatted numbers (for example 1.000,5) are read as plain numbers.</li>
 <li><strong>Excel file does not load</strong>: the Excel reader is loaded from the internet on first use. Without connection, save the sheet as CSV or paste the cells instead.</li>
 <li><strong>No image in the preview</strong>: the rendered preview is off (the default; click the image field to switch it on), the internet connection is blocked, or Labelary's rate limit was reached (the preview then says so; wait a moment and click the label image again). Label sizes entered in millimetres are converted to inches for Labelary automatically.</li>
+<li><strong>Barcodes on the design canvas are grey boxes</strong>: the barcode drawing is loaded from the internet on first use. Printing does not need it.</li>
+<li><strong>A designed label is not printed, "needs … lines"</strong>: the text is too long for its text block. Raise Max. lines, widen the block or use a smaller font.</li>
+<li><strong>Pasted ZPL prints too light or in the wrong place</strong>: the printer settings (<code>^MD</code>, <code>^PW</code>, <code>^LH</code> …) are missing in the code. Copy them from a template that prints well.</li>
 <li><strong>Camera icon does nothing</strong>: barcode scanning needs HTTPS (or localhost) and camera permission.</li>
 <li><strong>Configuration disappeared</strong>: the browser's site data was cleared, or the file was opened from a different location. Import your last export.</li>
 </ul>
@@ -907,6 +982,12 @@
     .btn-secondary:hover { background: #f3f4f6; }
     .btn-ghost { padding: 0.5rem 1rem; border: 1px solid #d1d5db; color: #374151; font-size: 0.875rem; border-radius: 0.375rem; transition: background 0.15s; cursor: pointer; }
     .btn-ghost:hover { background: #f9fafb; }
+    /* App dialog (askConfirm, askText, showMessage): replaces the browser's own pop-ups */
+    #app-dialog { width: calc(100% - 2rem); max-width: 27rem; margin: auto; padding: 1.25rem; border: 1px solid #e5e7eb; border-radius: 0.6rem; background: #fff; color: #374151; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); }
+    #app-dialog::backdrop { background: rgba(0,0,0,0.4); }
+    #app-dialog h2 { font-size: 1rem; font-weight: 600; color: #111827; margin-bottom: 0.5rem; }
+    #app-dialog p { font-size: 0.875rem; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }
+    #app-dialog .dlg-danger { background: #dc2626; } #app-dialog .dlg-danger:hover { background: #b91c1c; }
     .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 50; }
     .modal-backdrop.hidden { display: none; }
     .modal-box { background: white; border-radius: 0.5rem; border: 1px solid #e5e7eb; padding: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
@@ -938,6 +1019,14 @@
  *     migration step: customers import configs exported from old versions.
  *
  * Changelog:
+ *   v13  Version 1.3: label designer in Single Print (template.design generates
+ *        the ZPL one way, designZpl; text blocks are wrapped at print time and
+ *        sent line by line without ^FB, because FLUICS printers add a character
+ *        to words they split), ZPL code view with Labelary picture, Paste ZPL,
+ *        identical labels (^PQ), Save as new template / Save and use in, app
+ *        dialogs instead of browser pop-ups (askConfirm, askText, showMessage),
+ *        default templates as designs, Type 1 QR default keeps its first three
+ *        characters (LA,), Connect printer first in the settings.
  *   v12  Version 1.2: print range for jobs with several labels (parsePrintRange,
  *        small and quiet, the buttons show the count;
  *        also for the PDF; prefilled with the missing labels after a partial
@@ -1004,6 +1093,7 @@
  *                              date format / unit helpers, labelaryUrl/Fetch()
  *       Settings panel ....... gear icon sections, openSettings(), manual
  *       API / Printers ....... apiFetch(), loadPrinters()
+ *       Label designer ....... dz* functions: canvas, designZpl(), designWrap(), designBlock()
  *       Print tab ............ initPrintTab(); the shared card "1 Label template
  *                              and printer" feeds every mode through currentTemplate()
  *       Field rows ........... one row per placeholder (Single, Batch, Bundle
@@ -1057,7 +1147,8 @@
  *
  * State shape (see DEFAULTS for the authoritative structure):
  *   S.settings       : API key, base URL, Labelary toggle
- *   S.templates[]    : ZPL templates: { id, name, zpl, labelWidth, labelHeight, labelDpmm }
+ *   S.templates[]    : ZPL templates: { id, name, zpl, labelWidth, labelHeight, labelDpmm, design? }
+ *                       design = label designer source, valid only while it generates exactly zpl (designOf)
  *   S.variables[]    : known placeholders, name only: { key, label } (label → ZPL token; keys date, user, counter carry a role)
  *   S.printerNames   : map of LID → custom display name
  *   S.settings       : also dateFormat (global) and unit ('in' | 'mm', display only)
@@ -1102,7 +1193,7 @@
 // ── State ──────────────────────────────────────────────────────────────────────
 
 /** App version. Bump together with the release tag (vX.Y). */
-const APP_VERSION = '1.2';
+const APP_VERSION = '1.3';
 
 /**
  * Public links shown in the footer and the manual. Fill in before release;
@@ -1193,34 +1284,265 @@ const DEFAULTS = {
     {
       "id": "6a5a4362-bc7d-4c34-add5-d4210f3c007b",
       "name": "Type 1 Labels (text only)",
-      "zpl": "^FX T1 25.4 x 12.7 mm cryo ^FS\n^MTT^MUD,300,300\n^PR2\n^MD30\n^PW300\n^LH20,20\n^CF0,25\n^FO0,0^FDuser: ${USER}^FS\n^FO0,22^FDdate: ${DATE}^FS\n^FO0,44^FDname: ${NAME}^FS\n^FO0,66^FDbatch: ${BATCH_ID}^FS\n^FO0,88^FDtype: ${TYPE}^FS\n^FO0,110^FDsample: ${SAMPLE_COUNT}^FS\n^PQ1",
+      "zpl": "^FX PRINT Studio designer ^FS\n^MTT^MUD,300,300\n^PR2\n^MD30\n^PW300\n^LH0,0\n^CI28\n^FO20,20^A0N,25^FDuser: ${USER}^FS\n^FO20,42^A0N,25^FDdate: ${DATE}^FS\n^FO20,64^A0N,25^FDname: ${NAME}^FS\n^FO20,86^A0N,25^FDbatch: ${BATCH_ID}^FS\n^FO20,108^A0N,25^FDtype: ${TYPE}^FS\n^FO20,130^A0N,25^FDsample: ${SAMPLE_COUNT}^FS",
       "labelWidth": 1,
       "labelHeight": 0.5,
-      "labelDpmm": 12
+      "labelDpmm": 12,
+      "design": {
+        "v": 1,
+        "w": 300,
+        "h": 150,
+        "margin": 20,
+        "elements": [
+          {
+            "id": "e0",
+            "type": "text",
+            "x": 20,
+            "y": 20,
+            "rot": "N",
+            "data": "user: ${USER}",
+            "size": 25,
+            "height": 50,
+            "block": 0,
+            "lines": 2,
+            "align": "L"
+          },
+          {
+            "id": "e1",
+            "type": "text",
+            "x": 20,
+            "y": 42,
+            "rot": "N",
+            "data": "date: ${DATE}",
+            "size": 25,
+            "height": 50,
+            "block": 0,
+            "lines": 2,
+            "align": "L"
+          },
+          {
+            "id": "e2",
+            "type": "text",
+            "x": 20,
+            "y": 64,
+            "rot": "N",
+            "data": "name: ${NAME}",
+            "size": 25,
+            "height": 50,
+            "block": 0,
+            "lines": 2,
+            "align": "L"
+          },
+          {
+            "id": "e3",
+            "type": "text",
+            "x": 20,
+            "y": 86,
+            "rot": "N",
+            "data": "batch: ${BATCH_ID}",
+            "size": 25,
+            "height": 50,
+            "block": 0,
+            "lines": 2,
+            "align": "L"
+          },
+          {
+            "id": "e4",
+            "type": "text",
+            "x": 20,
+            "y": 108,
+            "rot": "N",
+            "data": "type: ${TYPE}",
+            "size": 25,
+            "height": 50,
+            "block": 0,
+            "lines": 2,
+            "align": "L"
+          },
+          {
+            "id": "e5",
+            "type": "text",
+            "x": 20,
+            "y": 130,
+            "rot": "N",
+            "data": "sample: ${SAMPLE_COUNT}",
+            "size": 25,
+            "height": 50,
+            "block": 0,
+            "lines": 2,
+            "align": "L"
+          }
+        ],
+        "samples": {}
+      }
     },
     {
       "id": "560bcf92-1d23-423f-99b1-699e3f50c297",
       "name": "Type 1 Labels (qr code)",
-      "zpl": "^FX T1 25.4 x 12.7 mm cryo ^FS\n^MTT^MUD,300,300\n^PR2\n^MD30\n^PW300\n^LH20,20\n^CF0,25\n^FO95,15^FD${NAME}^FS\n^FO95,80^FD${DATE}^FS\n^FO0,5^BQN,2,4^FDLA,${NAME}^FS",
+      "zpl": "^FX PRINT Studio designer ^FS\n^MTT^MUD,300,300\n^PR2\n^MD30\n^PW300\n^LH0,0\n^CI28\n^FO115,35^A0N,25^FDName: ${NAME}^FS\n^FO115,100^A0N,25^FDDate: ${DATE}^FS\n^FO20,25^BY2,3,10^BQN,2,4^FDLA,${barcode}^FS",
       "labelWidth": 1,
       "labelHeight": 0.5,
-      "labelDpmm": 12
+      "labelDpmm": 12,
+      "design": {
+        "v": 1,
+        "w": 300,
+        "h": 150,
+        "margin": 20,
+        "elements": [
+          {
+            "id": "e0",
+            "type": "text",
+            "x": 115,
+            "y": 35,
+            "rot": "N",
+            "data": "Name: ${NAME}",
+            "size": 25,
+            "height": 50,
+            "block": 0,
+            "lines": 2,
+            "align": "L"
+          },
+          {
+            "id": "e1",
+            "type": "text",
+            "x": 115,
+            "y": 100,
+            "rot": "N",
+            "data": "Date: ${DATE}",
+            "size": 25,
+            "height": 50,
+            "block": 0,
+            "lines": 2,
+            "align": "L"
+          },
+          {
+            "id": "e2",
+            "type": "qr",
+            "x": 20,
+            "y": 35,
+            "rot": "N",
+            "data": "${barcode}",
+            "size": 4,
+            "height": 50,
+            "block": 0,
+            "lines": 2,
+            "align": "L"
+          }
+        ],
+        "samples": {}
+      }
     },
     {
       "id": "bef76de0-371d-42e5-a9fc-7d56c7d6e220",
       "name": "Type 4 Labels (qr code)",
-      "zpl": "^FX T4 50.8 x 25.4 mm chemical resistant ^FS\n^MTT^MUD,300,300\n^PR2\n^MD30\n^PW600\n^LH25,25\n^CF0,40\n^FO120,0^FD${name}^FS\n^FO0,50^BQN,2,5^FDLA,${barcode}^FS\n^FO0,200^FD${barcode}^FS",
+      "zpl": "^FX PRINT Studio designer ^FS\n^MTT^MUD,300,300\n^PR2\n^MD30\n^PW600\n^LH0,0\n^CI28\n^FO145,25^A0N,40^FD${name}^FS\n^FO25,75^BY2,3,10^BQN,2,5^FDLA,${barcode}^FS\n^FO25,225^A0N,40^FD${barcode}^FS",
       "labelWidth": 2,
       "labelHeight": 1,
-      "labelDpmm": 12
+      "labelDpmm": 12,
+      "design": {
+        "v": 1,
+        "w": 600,
+        "h": 300,
+        "margin": 25,
+        "elements": [
+          {
+            "id": "e0",
+            "type": "text",
+            "x": 145,
+            "y": 25,
+            "rot": "N",
+            "data": "${name}",
+            "size": 40,
+            "height": 50,
+            "block": 0,
+            "lines": 2,
+            "align": "L"
+          },
+          {
+            "id": "e1",
+            "type": "qr",
+            "x": 25,
+            "y": 85,
+            "rot": "N",
+            "data": "${barcode}",
+            "size": 5,
+            "height": 50,
+            "block": 0,
+            "lines": 2,
+            "align": "L"
+          },
+          {
+            "id": "e2",
+            "type": "text",
+            "x": 25,
+            "y": 225,
+            "rot": "N",
+            "data": "${barcode}",
+            "size": 40,
+            "height": 50,
+            "block": 0,
+            "lines": 2,
+            "align": "L"
+          }
+        ],
+        "samples": {}
+      }
     },
     {
       "id": "5043b598-542a-420b-b54a-b54c5cf5b3eb",
       "name": "Type 12 Labels (circle+rectangle)",
-      "zpl": "^FX T12 24 x 12.7 + Ø 11.0 mm cryo ^FS\n^MTT^MUD,300,300\n^PR2\n^MD30\n^PW420\n^LH20,20\n^CF0,25\n^FO220,0^FD${name}^FS\n^FO128,13^BQN,2,4^FDLA,${barcode}^FS\n^CF0,26\n^FO5,30^TB,80,510^FD${name}^FS",
+      "zpl": "^FX PRINT Studio designer ^FS\n^MTT^MUD,300,300\n^PR2\n^MD30\n^PW420\n^LH0,0\n^CI28\n^FO240,20^A0N,25^FD${name}^FS\n^FO148,33^BY2,3,10^BQN,2,4^FDLA,${barcode}^FS\n^FO25,50^A0N,26^FB90,3,0,L^FH_^FD${name}^FS",
       "labelWidth": 1.402,
       "labelHeight": 0.5,
-      "labelDpmm": 12
+      "labelDpmm": 12,
+      "design": {
+        "v": 1,
+        "w": 420,
+        "h": 150,
+        "margin": 20,
+        "elements": [
+          {
+            "id": "e0",
+            "type": "text",
+            "x": 240,
+            "y": 20,
+            "rot": "N",
+            "data": "${name}",
+            "size": 25,
+            "height": 50,
+            "block": 0,
+            "lines": 2,
+            "align": "L"
+          },
+          {
+            "id": "e1",
+            "type": "qr",
+            "x": 148,
+            "y": 43,
+            "rot": "N",
+            "data": "${barcode}",
+            "size": 4,
+            "height": 50,
+            "block": 0,
+            "lines": 2,
+            "align": "L"
+          },
+          {
+            "id": "e2",
+            "type": "text",
+            "x": 25,
+            "y": 50,
+            "rot": "N",
+            "data": "${name}",
+            "size": 26,
+            "height": 50,
+            "block": 90,
+            "lines": 3,
+            "align": "L"
+          }
+        ],
+        "samples": {}
+      }
     }
   ],
   "auditLog": [],
@@ -1271,7 +1593,7 @@ const DEFAULTS = {
         {
           "token": "NAME",
           "kind": "static",
-          "value": "Sample Name",
+          "value": "Sample",
           "date": "",
           "start": 1,
           "digits": 1,
@@ -1289,7 +1611,7 @@ const DEFAULTS = {
         {
           "token": "barcode",
           "kind": "static",
-          "value": "Sample",
+          "value": "1234567",
           "date": "",
           "start": 1,
           "digits": 1,
@@ -1944,7 +2266,36 @@ function templateTokens(tmpl) {
 
 /** @returns {object|undefined} The template currently selected in the Print view. */
 function currentTemplate() {
-  return S.templates.find(t => t.id === document.getElementById('template-select')?.value);
+  const id = document.getElementById('template-select')?.value;
+  const saved = S.templates.find(t => t.id === id);
+  // Single Print prints what the canvas or the ZPL view shows, saved or not.
+  if (id && tmplHost === 'print' && tmplEditId === id && document.getElementById('m-tzpl')) {
+    const name = document.getElementById('m-tname2').value.trim() || saved?.name || 'New label';
+    const dims = dz ? { zpl: designZpl(dz), labelWidth: dz.w / 300, labelHeight: dz.h / 300, labelDpmm: 12 } : {
+      zpl: stripZplWrapper(document.getElementById('m-tzpl').value),
+      labelWidth: dimFromUnit(parseFloat(document.getElementById('m-tlbl-width').value)) || 1,
+      labelHeight: dimFromUnit(parseFloat(document.getElementById('m-tlbl-height').value)) || 0.5,
+      labelDpmm: parseInt(document.getElementById('m-tlbl-dpmm').value) || 12,
+    };
+    return { ...saved, id, name: tmplDirty ? `${name} (unsaved)` : name, ...dims };
+  }
+  return saved;
+}
+
+/** ZPL without one ^XA … ^XZ around it: the FLUICS API adds them itself. Several labels stay as they are. */
+function stripZplWrapper(zpl) {
+  const m = /^\s*\^XA([\s\S]*?)\^XZ\s*$/i.exec(zpl);
+  return m && !/\^X[AZ]/i.test(m[1]) ? m[1].trim() : zpl;
+}
+
+/** Warnings for pasted ZPL: what would not print as expected or change the printer itself. */
+function zplWarnings(zpl) {
+  const out = [], z = stripZplWrapper(zpl);
+  if (/\^X[AZ]/i.test(z)) out.push('This is more than one label (^XA … ^XZ). Paste and print one label at a time.');
+  const risky = [...new Set([...z.matchAll(/(?:~[A-Z]{2}|\^(?:JU|JZ|KP|ID|SS|ST|MF|LT|LS|TO|XS)[A-Z]?)/gi)].map(m => m[0].toUpperCase()))];
+  if (risky.length) out.push(`Contains commands that can change the printer or its stored data: ${risky.join(', ')}. Remove them unless you are sure.`);
+  if (z.trim() && !/\^F[DV]|\^G[BCEFDS]|\^XG|\^IM/i.test(z)) out.push('No printable field found in this ZPL.');
+  return out;
 }
 
 /** @returns {string[]} Every ${TOKEN} used by any saved template, in first-seen order. */
@@ -2007,7 +2358,7 @@ function unitLabel()         { return S.settings.unit === 'mm' ? 'mm' : 'in'; }
 // opens from the book icon.
 
 /** Section ids inside the settings panel. */
-const SETTINGS_SECTIONS = ['general', 'connect', 'templates', 'notes', 'audit'];
+const SETTINGS_SECTIONS = ['connect', 'general', 'templates', 'notes', 'audit'];
 
 /**
  * Show one section of the settings panel and render its content (lists may
@@ -2016,7 +2367,8 @@ const SETTINGS_SECTIONS = ['general', 'connect', 'templates', 'notes', 'audit'];
  */
 function showSection(name) {
   if (!SETTINGS_SECTIONS.includes(name)) name = 'general';
-  if (name !== 'templates' && !leaveTemplateEditor()) return;
+  // One editor at a time; an open design of Single Print stays while other sections are visited.
+  if ((name === 'templates') === (tmplHost === 'print') && !leaveTemplateEditor(() => showSection(name))) return;
   SETTINGS_SECTIONS.forEach(sec => {
     document.getElementById(`section-${sec}`).classList.toggle('hidden', sec !== name);
     document.getElementById(`snav-${sec}`).classList.toggle('active', sec === name);
@@ -2062,17 +2414,18 @@ function saveNotes() {
  * @param {string} [section]
  */
 function openSettings(section) {
+  if (section === 'templates' && tmplEditId && tmplHost === 'print' && !leaveTemplateEditor(() => openSettings(section))) return;
   document.getElementById('settings-api-key').value            = S.settings.apiKey;
   document.getElementById('settings-base-url').value           = S.settings.baseUrl;
   document.getElementById('settings-labelary-enabled').checked = labelaryOn();
   document.getElementById('connect-status').textContent = '';
   document.getElementById('settings-modal').classList.remove('hidden');
-  showSection(section || 'general');
+  showSection(section || (S.settings.apiKey ? 'general' : 'connect'));
 }
 
 /** Close the settings panel. All sections auto-save, so nothing is lost. */
 function closeSettings() {
-  if (!leaveTemplateEditor()) return;   // unsaved template changes: ask first
+  if (tmplHost === 'settings' && !leaveTemplateEditor(closeSettings)) return;   // unsaved template changes: ask first
   document.getElementById('settings-modal').classList.add('hidden');
   // Variables, templates or groups may have changed: rebuild the print view.
   initPrintTab();
@@ -2113,13 +2466,14 @@ async function saveConnection() {
 function labelaryOn() {
   return S.settings.labelaryEnabled === true && S.settings.labelaryConsent === true;
 }
+const LABELARY_OFF_HINT = '<span class="text-gray-500 not-italic">Rendered preview is off (Labelary)<br><span class="text-blue-600 underline">Click to switch it on</span></span>';
 const LABELARY_CONSENT_TEXT = 'Rendered previews and PDFs are made by Labelary (labelary.com), an external service. '
   + 'For every preview the label code, including the values printed on it, is sent to labelary.com.\n\n'
   + 'Switch on the rendered preview?';
 
 /** Turns the rendered preview on after asking once. Returns whether it is on. */
-function enableLabelary() {
-  if (!S.settings.labelaryConsent && !confirm(LABELARY_CONSENT_TEXT)) return false;
+async function enableLabelary() {
+  if (!S.settings.labelaryConsent && !await askConfirm(LABELARY_CONSENT_TEXT, { title: 'Send label content to Labelary?', ok: 'Switch on' })) return false;
   S.settings.labelaryConsent = true;
   S.settings.labelaryEnabled = true;
   save();
@@ -2128,9 +2482,9 @@ function enableLabelary() {
 }
 
 /** Labelary toggle in Settings, General: asks for consent the first time, then persists and re-applies the layout. */
-function onLabelaryToggle(checked) {
+async function onLabelaryToggle(checked) {
   if (checked) {
-    if (!enableLabelary()) document.getElementById('settings-labelary-enabled').checked = false;
+    if (!await enableLabelary()) document.getElementById('settings-labelary-enabled').checked = false;
     return;
   }
   S.settings.labelaryEnabled = false;
@@ -2139,8 +2493,8 @@ function onLabelaryToggle(checked) {
 }
 
 /** Wipe the stored state and reload with the factory defaults. */
-function resetApp() {
-  if (!confirm('Remove all settings, templates, bundles, values and the audit log stored in this browser and start with the factory defaults?')) return;
+async function resetApp() {
+  if (!await askConfirm('Remove all settings, templates, bundles, values and the audit log stored in this browser and start with the factory defaults?', { title: 'Reset the app?', ok: 'Reset', danger: true })) return;
   localStorage.removeItem('lr_state');
   location.reload();
 }
@@ -2226,19 +2580,19 @@ function findBadConfigId(c) {
 function importState(file) {
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = e => {
+  reader.onload = async e => {
     let imported;
     try { imported = JSON.parse(e.target.result); } catch { imported = null; }
     if (!imported || typeof imported !== 'object' || !Array.isArray(imported.templates)) {
-      alert('This file is not a FLUICS PRINT Studio configuration. Nothing was changed.');
+      showMessage('This file is not a FLUICS PRINT Studio configuration. Nothing was changed.');
       return;
     }
     const badId = findBadConfigId(imported);
     if (badId) {
-      alert(`This configuration contains an invalid id ("${badId.slice(0, 40)}"). Nothing was changed.`);
+      showMessage(`This configuration contains an invalid id ("${badId.slice(0, 40)}"). Nothing was changed.`);
       return;
     }
-    if (!confirm(`Import "${file.name}"? It replaces the templates, bundles and settings stored in this browser${Array.isArray(imported.auditLog) ? ' and the audit log' : ''}.`)) return;
+    if (!await askConfirm(`Import "${file.name}"? It replaces the templates, bundles and settings stored in this browser${Array.isArray(imported.auditLog) ? ' and the audit log' : ''}.`, { title: 'Import configuration?', ok: 'Import' })) return;
     // A shared export has no API key and no audit log: keep this browser's.
     // Labelary consent is never taken from a file.
     imported.settings = imported.settings && typeof imported.settings === 'object' ? imported.settings : JSON.parse(JSON.stringify(S.settings));
@@ -2254,11 +2608,12 @@ function importState(file) {
       localStorage.setItem('lr_state', JSON.stringify(imported));
       S = loadState({ strict: true });
       save();
+      tmplDirty = false; leaveTemplateEditor();   // an open design belongs to the replaced templates
     } catch (err) {
       // Put the previous configuration back instead of silently starting over.
       if (previous !== null) localStorage.setItem('lr_state', previous);
       S = loadState();
-      alert(`The configuration could not be imported (${err.message}). Your previous configuration was kept.`);
+      showMessage(`The configuration could not be imported (${err.message}). Your previous configuration was kept.`);
       return;
     }
     closeSettings();
@@ -2358,6 +2713,7 @@ function initPrintTab() {
   const ts = document.getElementById('template-select');
   const prevTmpl = ts.value || S.lastUsed.template;
   ts.innerHTML = '<option value="">Select template…</option>' +
+    (tmplHost === 'print' && tmplEditId === 'new' ? '<option value="new">New label (not saved)</option>' : '') +
     S.templates.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
   if (prevTmpl) ts.value = prevTmpl;
 
@@ -2565,7 +2921,7 @@ function setFieldRow(ns, i, field, value) {
   const f = fields[i];
   if (!f) return;
   if (field === 'token' && value && fields.some((x, j) => j !== i && x.token === value)) {
-    alert(`\${${value}} already has a row.`);
+    showMessage(`\${${value}} already has a row.`);
     renderFieldRows(ns);
     return;
   }
@@ -2648,7 +3004,10 @@ function evalFieldVars(fields, i) {
 /** One label from the Single Print rows. */
 function buildSingleLabels() {
   const fields = activeFields('single');
-  return fields.length ? [evalFieldVars(fields, 0)] : [];
+  if (fields.length) return [evalFieldVars(fields, 0)];
+  // A label without placeholders prints too, but not an empty design.
+  const empty = dz && tmplHost === 'print' && !dz.elements.length;
+  return currentTemplate()?.zpl.trim() && !empty ? [{}] : [];
 }
 
 // ── Batch Print ────────────────────────────────────────────────────────────────
@@ -2846,9 +3205,9 @@ function addBundle() {
 }
 
 /** Delete the selected bundle after confirmation. */
-function deleteBundle() {
+async function deleteBundle() {
   const b = currentBundle();
-  if (!b || !confirm(`Delete bundle "${b.name || 'Unnamed bundle'}"?`)) return;
+  if (!b || !await askConfirm(`Delete bundle "${b.name || 'Unnamed bundle'}"?`, { title: 'Delete bundle?', ok: 'Delete', danger: true })) return;
   S.bundles = S.bundles.filter(x => x.id !== b.id);
   bundleState().bundleId = S.bundles[0]?.id || '';
   save(); renderBundlePane(); clearLabelaryCache(); refreshPreview();
@@ -2957,6 +3316,7 @@ function subst(zpl, vars, issues) {
     if (issues) issues.push(`the value "${v.slice(0, 40)}" of \${${k}} is used inside a ZPL command of the template, where ^, ~ and line breaks are not allowed.`);
     return v.replace(/[\^~\r\n]/g, '');
   });
+  const designed = zpl.startsWith('^FX PRINT Studio designer ^FS');
   const upper = zpl.toUpperCase();
   const fieldStart = /\^F[DV]/gi;
   let out = '', pos = 0, m;
@@ -2969,6 +3329,15 @@ function subst(zpl, vars, issues) {
     const fh = [...cmd.matchAll(/\^FH(.?)/gi)].pop();
     let ind = fh ? (fh[1] && fh[1] !== '^' && fh[1] !== '~' ? fh[1] : '_') : null;
     let prefix = '', fixStatic = t => t;
+    // Text blocks of designer templates: values and line breaks together.
+    // cmd can start with the previous field's ^FS.
+    const own = cmd.slice(cmd.toUpperCase().lastIndexOf('^FS') + (/\^FS/i.test(cmd) ? 3 : 1));
+    const block = designed && /\^FB/i.test(own) ? designBlock(own, data, val, issues) : null;
+    if (block !== null) {
+      out += inCommand(cmd.slice(0, cmd.length - own.length)) + block;
+      pos = end; fieldStart.lastIndex = end;
+      continue;
+    }
     const hasRisky = [...data.matchAll(/\$\{(\w+)\}/g)].some(t => /[\^~]/.test(val(t[1])));
     if (!ind && hasRisky) {
       ind = '\\'; prefix = '^FH\\';
@@ -2992,7 +3361,8 @@ function subst(zpl, vars, issues) {
  */
 function refreshPreview() {
   const tmplEl = document.getElementById('template-select');
-  if (tmplEl?.value && tmplEl.value !== S.lastUsed.template) {
+  if (tmplEl?.value === 'new') { /* unsaved new design: nothing to remember */ }
+  else if (tmplEl?.value && tmplEl.value !== S.lastUsed.template) {
     S.lastUsed.template = tmplEl.value;
     modeSel().template = tmplEl.value;
     if (printMode === 'bundle' && currentBundle()) currentBundle().templateId = tmplEl.value;
@@ -3006,6 +3376,7 @@ function refreshPreview() {
     modeSel().template = tmplEl.value;
   }
   save();
+  if (dz && tmplHost === 'print') renderDzCanvas();   // the open designer shows the entered values
 
   const labels = buildLabels();
   const count = labels.length;
@@ -3038,7 +3409,7 @@ function refreshPreview() {
   // Warn if the selected template has placeholders with no matching value.
   // Checked across all labels so a single empty cell in a pasted table is caught.
   const warnEl = document.getElementById('preview-warning');
-  const tmplNow = S.templates.find(t => t.id === document.getElementById('template-select')?.value);
+  const tmplNow = currentTemplate();
   if (warnEl) {
     if (tmplNow) {
       const placeholders = [...new Set([...tmplNow.zpl.matchAll(/\$\{(\w+)\}/g)].map(m => m[1]))];
@@ -3069,6 +3440,7 @@ function refreshPreview() {
     </tr>`
   ).join('');
   scheduleLabelaryRender();
+  markZplPreview();
 }
 
 /**
@@ -3116,6 +3488,9 @@ function syncPrintButton(count) {
   const hasKey = !!S.settings.apiKey;
   const labelary = labelaryOn();
   document.getElementById('no-printer-hint')?.classList.toggle('hidden', hasKey);
+  const nav = document.getElementById('snav-connect');
+  nav?.classList.toggle('todo', !hasKey);
+  if (nav) nav.title = hasKey ? '' : 'No API key stored yet';
   // Without a key the printer dropdown cannot be filled: show the link to the settings instead.
   document.getElementById('printer-picker')?.classList.toggle('hidden', !hasKey);
   document.getElementById('printer-connect-link')?.classList.toggle('hidden', hasKey);
@@ -3123,8 +3498,15 @@ function syncPrintButton(count) {
   const pdf = document.getElementById('pdf-btn');
   if (pdf) { pdf.textContent = `Save as PDF (${n} label${n !== 1 ? 's' : ''})`; pdf.disabled = !labelary || !!range.error; }
   const noun = `${n} label${n !== 1 ? 's' : ''}`;
-  btn.textContent = printMode === 'single' ? 'Print label'
-                  : printMode === 'bundle' ? `Print Bundle (${noun})`
+  if (printMode === 'single') {
+    const c = singleCopies(), hint = document.getElementById('single-copies-hint');
+    hint.textContent = c.error || (c.set === null && c.total > 1 ? `The ZPL of this label prints ${c.total} (^PQ). Enter a number to change it.` : `1 to ${PQ_MAX_PER_LABEL}, more in Batch Print`);
+    hint.className = `text-xs ${c.error ? 'text-red-600' : 'text-gray-400'}`;
+    btn.disabled = btn.disabled || !!c.error;
+    btn.textContent = c.error || c.total === 1 ? 'Print label' : `Print ${c.total} labels`;
+    return;
+  }
+  btn.textContent = printMode === 'bundle' ? `Print Bundle (${noun})`
                   : `Print ${noun}`;
 }
 
@@ -3134,6 +3516,23 @@ function labelCopies(zpl) {
   for (const m of zpl.matchAll(/\^PQ\s*(\d+)/gi)) n = Number(m[1]);
   return n;
 }
+/** Set the copies of one label; a ^PQ of the template is replaced. Last in the ZPL, as apiCopies() expects. */
+function withCopies(zpl, n) {
+  return zpl.replace(/\^PQ[^^~\r\n]*/gi, '').trimEnd() + `\n^PQ${n}`;
+}
+/**
+ * Single Print: number of identical labels. An empty field keeps the ^PQ of the template.
+ * @returns {{set:number|null, total:number, error:string}}
+ */
+function singleCopies() {
+  const el = document.getElementById('single-copies');
+  const raw = el.value.trim(), bad = el.validity && el.validity.badInput;
+  if (!raw && !bad) return { set: null, total: labelCopies(currentTemplate()?.zpl || ''), error: '' };
+  const n = Number(raw);
+  if (bad || !Number.isInteger(n) || n < 1 || n > PQ_MAX_PER_LABEL) return { set: null, total: 1, error: `Enter 1 to ${PQ_MAX_PER_LABEL} identical labels. For more, use Batch Print.` };
+  return { set: n, total: n, error: '' };
+}
+
 /** Copies as the print API counts them for its limits (int() of everything after the last ^PQ, else 1). */
 function apiCopies(zpl) {
   let n = 1;
@@ -3186,20 +3585,27 @@ async function printLabelsInner() {
   const jobRanges = pos => labelRanges(pos.map(i => nums[i]).sort((a, b) => a - b));
   const lid = document.getElementById('printer-select').value;
   if (!lid) return setStatus('Select a printer.', 'error');
-  const tmpl = S.templates.find(t => t.id === document.getElementById('template-select').value);
+  const tmpl = currentTemplate();
   if (!tmpl) return setStatus('Select a template.', 'error');
+
+  if (printMode === 'single' && /\^X[AZ]/i.test(tmpl.zpl)) return setStatus('Not printed: the ZPL contains more than one label (^XA … ^XZ). Paste and print one label at a time.', 'error');
 
   // Build the ZPL first: copies per label (^PQ) and values in command
   // parameters are checked before anything is sent.
   const zplIssues = [];
-  const payload = labels.map(l => ({ id: uid(), data: subst(tmpl.zpl, l, zplIssues) }));
+  const single = printMode === 'single' ? singleCopies() : null;
+  if (single?.error) return setStatus(`Not printed: ${single.error}`, 'error');
+  const payload = labels.map(l => {
+    const data = subst(tmpl.zpl, l, zplIssues);
+    return { id: uid(), data: single?.set ? withCopies(data, single.set) : data };
+  });
   if (zplIssues.length) return setStatus(`Not printed: ${zplIssues[0]}`, 'error');
   const copies = payload.map(p => labelCopies(p.data));
   const total = copies.reduce((a, b) => a + b, 0);
   const tooMany = copies.findIndex(c => c > PQ_MAX_PER_LABEL || c < 1);
   if (tooMany >= 0) return setStatus(`Not printed: label ${nums[tooMany] + 1} asks for ${copies[tooMany]} copies (^PQ). The printer accepts 1 to ${PQ_MAX_PER_LABEL} copies per label.`, 'error');
   if (total > MAX_JOB_COPIES) return setStatus(`Not printed: this job would print ${total} labels, more than ${MAX_JOB_COPIES} at once. Check the copies and counters, or print in smaller parts.`, 'error');
-  if (total > LARGE_JOB && !confirm(`Print ${total} labels? Check the preview if this is more than you expected.`)) return;
+  if (total > LARGE_JOB && !await askConfirm(`Print ${total} labels? Check the preview if this is more than you expected.`, { title: 'Large print job', ok: 'Print' })) return;
 
   const btn = document.getElementById('print-btn');
   btn.disabled = true;
@@ -3220,7 +3626,7 @@ async function printLabelsInner() {
       return;
     }
     const ps = String(st?.printerState?.printerStatus ?? st?.printerStatus ?? '');
-    if (ps && ps !== '00' && !confirm(`Printer ${printerName} reports status ${ps}${PRINTER_STATUS_TEXT[ps] ? ': ' + PRINTER_STATUS_TEXT[ps] : ''}. Print anyway?`)) {
+    if (ps && ps !== '00' && !await askConfirm(`Printer ${printerName} reports status ${ps}${PRINTER_STATUS_TEXT[ps] ? ': ' + PRINTER_STATUS_TEXT[ps] : ''}. Print anyway?`, { title: 'Printer problem', ok: 'Print anyway' })) {
       btn.disabled = false;
       setStatus(`Not printed: printer ${printerName} reports status ${ps}${PRINTER_STATUS_TEXT[ps] ? ' (' + PRINTER_STATUS_TEXT[ps] + ')' : ''}. Fix it (then press the feed button to reset the status) and print again.`, 'error');
       return;
@@ -3235,7 +3641,8 @@ async function printLabelsInner() {
 
   // Live elapsed time while waiting for the printer.
   const started = Date.now();
-  const sendingText = () => `Sending ${labels.length} label${labels.length !== 1 ? 's' : ''} to ${printerName}… ${Math.round((Date.now() - started) / 1000)} s`;
+  const shown = single ? total : labels.length;   // identical labels count in Single Print
+  const sendingText = () => `Sending ${shown} label${shown !== 1 ? 's' : ''} to ${printerName}… ${Math.round((Date.now() - started) / 1000)} s`;
   setStatus(sendingText(), 'info');
   const ticker = setInterval(() => {
     const el = document.getElementById('print-status');
@@ -3244,7 +3651,7 @@ async function printLabelsInner() {
 
   // Persist selections so they survive a reload even if the print fails.
   S.lastUsed.printer  = lid;
-  S.lastUsed.template = document.getElementById('template-select').value;
+  if (tmpl.id !== 'new') S.lastUsed.template = tmpl.id;
   modeSel().printer  = lid;
   modeSel().template = S.lastUsed.template;
   save();
@@ -3253,7 +3660,7 @@ async function printLabelsInner() {
   const auditTmplName  = tmpl.name;
   const auditGroupName = printMode === 'bundle' ? (currentBundle()?.name || '') : '';
   const auditSource    = printMode === 'paste' ? (pasteState().source || '') : '';
-  const auditBase = { count: labels.length, lid, tmplName: auditTmplName, groupName: auditGroupName, mode: printMode, source: auditSource, zpl: payload.map(p => p.data) };
+  const auditBase = { count: shown, lid, tmplName: auditTmplName, groupName: auditGroupName, mode: printMode, source: auditSource, zpl: payload.map(p => p.data) };
 
   // Requests go out one after the other and stop at the first problem, so the
   // message can say exactly which labels printed and which to print again.
@@ -3308,7 +3715,7 @@ async function printLabelsInner() {
   const notSent = payload.map((_, i) => i).filter(i => !okIdx.includes(i) && !badIdx.includes(i) && !unsureIdx.includes(i));
   if (!error && !badIdx.length && !unsureIdx.length) {
     const note = unconfirmed ? ' (the print server did not confirm each label)' : '';
-    setStatus(`✓ ${n} label${n !== 1 ? 's' : ''} printed${note}`, 'success');
+    setStatus(`✓ ${shown} label${shown !== 1 ? 's' : ''} printed${note}`, 'success');
     // Done: the next print is the whole job again.
     if (range.idx) { document.getElementById('print-range').value = ''; syncPrintButton(); }
     addAuditEntry({ ...auditBase, status: 'success' });
@@ -3377,7 +3784,9 @@ async function saveLabelsPdf() {
   const btn = document.getElementById('pdf-btn');
   btn.disabled = true;
   setStatus('Rendering PDF…', 'info');
-  const zplList = labels.map(l => subst(tmpl.zpl, l));
+  const pdfIssues = [];
+  const zplList = labels.map(l => subst(tmpl.zpl, l, pdfIssues));
+  if (pdfIssues.length) { btn.disabled = false; return setStatus(`No PDF made: ${pdfIssues[0]}`, 'error'); }
   const url = labelaryUrl(tmpl.labelDpmm || 12, tmpl.labelWidth || 1, tmpl.labelHeight || 0.5);
   const chunks = [];
   for (let i = 0; i < zplList.length; i += 50) chunks.push(zplList.slice(i, i + 50));
@@ -3534,7 +3943,7 @@ async function renderLabelaryPreview() {
     return;
   }
 
-  const tmpl = S.templates.find(t => t.id === document.getElementById('template-select')?.value);
+  const tmpl = currentTemplate();
   if (!tmpl) {
     container.innerHTML = '<span class="text-gray-400 italic text-sm">Select a template to preview</span>';
     return;
@@ -3617,6 +4026,9 @@ function applyLabelarySetting() {
   else if (!enabled) showLabelaryOff();
   previewInitialised = true;
   if (enabled) renderLabelaryPreview();
+  renderZplPreview();
+  // Label templates in Settings are open: fill their preview boxes (no re-render, an open editor keeps its text).
+  if (enabled && !document.getElementById('section-templates').classList.contains('hidden') && !document.getElementById('settings-modal').classList.contains('hidden')) renderTemplateCardPreviews();
 }
 
 /** Placeholder in the image field while Labelary is off; nothing is sent. */
@@ -3628,7 +4040,7 @@ function showLabelaryOff() {
       + '<span class="text-blue-600 underline">Click to switch it on</span></span>';
   }
   const navInfo = document.getElementById('lbl-nav-info');
-  if (navInfo) navInfo.textContent = '0 / 0';
+  if (navInfo) navInfo.textContent = '';   // nothing rendered: no label counter
   ['lbl-prev', 'lbl-next'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = true; });
 }
 
@@ -3637,9 +4049,9 @@ function showLabelaryOff() {
  * asked (once) whether label content may be sent to labelary.com; afterwards
  * a click renders the current label.
  */
-function onLabelaryContainerClick() {
+async function onLabelaryContainerClick() {
   if (!labelaryOn()) {
-    if (enableLabelary()) { document.getElementById('labelary-container').title = 'Click to render this label'; requestLabelaryRender(); }
+    if (await enableLabelary()) { document.getElementById('labelary-container').title = 'Click to render this label'; requestLabelaryRender(); }
     return;
   }
   clearLabelaryCache();
@@ -3666,6 +4078,7 @@ let labelaryStale = false;
 
 /** Render now if the content changed since the last render. */
 function renderIfStale() {
+  if (tmplPreviewStale && tmplHost === 'print' && !dz && labelaryOn()) renderZplPreview();
   if (!labelaryStale || !visualVisible()) return;
   labelaryStale = false;
   requestLabelaryRender();
@@ -3795,11 +4208,25 @@ function renderTemplates() {
           <button type="button" ${uiOn('click', 'saveTemplate')} class="btn-primary text-sm">Save template</button>
         </div>
       </div>`;
-  const newCard = tmplEditId === 'new'
+  const newCard = tmplEditId === 'new' && tmplHost === 'settings'
     ? `<div class="border border-blue-300 rounded-lg p-4 ring-1 ring-blue-100"><div class="text-sm font-medium text-gray-800">New template</div>${editor()}</div>` : '';
-  if (!S.templates.length && !newCard) { el.innerHTML = empty('No templates added yet'); return; }
+  // Design open in Single Print.
+  const host = document.getElementById('print-editor');
+  host.innerHTML = tmplEditId && tmplHost === 'print'
+    ? `<div id="tmpl-editor" class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">${printDesignBody(S.templates.find(t => t.id === tmplEditId))}
+        <div class="flex flex-wrap items-center justify-end gap-2 mt-4 pt-3 border-t border-gray-100">
+          <span id="tmpl-editor-msg" class="text-xs text-red-600 mr-auto"></span>
+          <button type="button" ${uiOn('click', 'cancelEditTemplate')} class="btn-ghost text-sm">Discard changes</button>
+          ${tmplEditId === 'new' ? '' : `<button type="button" ${uiOn('click', 'saveAsNewTemplate')} class="btn-ghost text-sm" title="Keeps the selected template as it is and adds a new one">Save as new template</button>`}
+          <button type="button" ${uiOn('click', 'saveTemplate')} class="btn-primary text-sm">${tmplEditId === 'new' ? 'Save template' : 'Save changes'}</button>
+          <p class="w-full text-right text-xs text-gray-400">Save and use in
+            <button type="button" ${uiOn('click', 'saveAndUse', 'paste')} class="text-blue-600 hover:underline">Paste to Print</button> ·
+            <button type="button" ${uiOn('click', 'saveAndUse', 'batch')} class="text-blue-600 hover:underline">Batch Print</button> ·
+            <button type="button" ${uiOn('click', 'saveAndUse', 'bundle')} class="text-blue-600 hover:underline" title="Starts a new bundle with this label">Label Bundles</button></p>
+        </div></div>` : '';
+  if (!S.templates.length && !newCard && !host.innerHTML) { el.innerHTML = empty('No templates added yet'); return; }
   el.innerHTML = newCard + S.templates.map((t, i) => {
-    const open = tmplEditId === t.id;
+    const open = tmplEditId === t.id && tmplHost === 'settings';
     return `<div class="border ${open ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200'} rounded-lg p-4">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
         <div>
@@ -3817,30 +4244,43 @@ function renderTemplates() {
         </div>
       </div>
       ${open ? editor(t) : `
-      <div class="grid gap-3" style="${withPreview ? 'grid-template-columns:minmax(0,1fr) 220px' : ''}">
-        <textarea class="zpl-editor w-full h-24 text-xs border border-gray-200 rounded p-2 bg-gray-50 resize-none" readonly>${esc(t.zpl)}</textarea>
-        ${withPreview ? `<div id="tpl-preview-${esc(t.id)}" class="bg-gray-100 rounded border border-gray-200 flex items-center justify-center p-2 text-xs text-gray-400 italic min-h-[6rem]">${t.zpl.trim() ? 'Rendering…' : 'No ZPL yet'}</div>` : ''}
+      <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
+        <textarea class="zpl-editor w-full h-full min-h-[6rem] text-xs border border-gray-200 rounded p-2 bg-gray-50 resize-none" readonly>${esc(t.zpl)}</textarea>
+        <div id="tpl-preview-${esc(t.id)}" ${uiOn('click', 'clickTmplPreview')} class="bg-gray-100 rounded border border-gray-200 flex items-center justify-center p-2 text-xs text-gray-400 text-center min-h-[6rem] ${withPreview ? '' : 'cursor-pointer'}">${!t.zpl.trim() ? 'No ZPL yet' : withPreview ? 'Rendering…' : LABELARY_OFF_HINT}</div>
       </div>`}
     </div>`;
   }).join('');
-  if (withPreview) renderTemplateCardPreviews();
+  if (withPreview && tmplHost === 'settings') renderTemplateCardPreviews();
   if (tmplEditId) {
     updateTmplTokenHint();
-    if (withPreview && tmplEditId !== 'new') setTimeout(renderTmplModalPreview, 80);
+    dz = null; dzParked = null;
+    if (designOf(S.templates.find(t => t.id === tmplEditId))) dzOpen(); // designed templates open in the designer
+    if (withPreview && tmplEditId !== 'new' && tmplHost === 'settings') setTimeout(renderTmplModalPreview, 80);
   }
 }
 
-/** Leave the open editor; asks first when it has unsaved changes. Returns false when the user keeps editing. */
-function leaveTemplateEditor() {
-  if (tmplEditId && tmplDirty && !confirm('Discard the changes to this template?')) return false;
-  tmplEditId = null; tmplDirty = false; tmplPreviewStale = false;
+/**
+ * Leave the open editor. With unsaved changes it asks in a dialog and returns
+ * false for now; on Discard the caller's action is run again.
+ * @param {Function} again - repeats what the user wanted to do
+ */
+function leaveTemplateEditor(again) {
+  if (tmplEditId && tmplDirty) {
+    askConfirm('The changes to this label template are not saved.', { title: 'Discard changes?', ok: 'Discard', danger: true })
+      .then(yes => { if (yes) { tmplDirty = false; again?.(); } });
+    return false;
+  }
+  tmplEditId = null; tmplDirty = false; tmplPreviewStale = false; dz = null; dzParked = null;
+  tmplHost = 'settings';
+  document.getElementById('print-editor').innerHTML = '';
+  document.querySelector('#template-select option[value="new"]')?.remove();
   return true;
 }
 
 /** Edit button: open the editor in this card, or close it again. */
 function toggleEditTemplate(id) {
   const opening = tmplEditId !== id;
-  if (!leaveTemplateEditor()) return;
+  if (!leaveTemplateEditor(() => toggleEditTemplate(id))) return;
   if (opening) tmplEditId = id;
   renderTemplates();
   if (opening) focusTemplateEditor();
@@ -3848,13 +4288,15 @@ function toggleEditTemplate(id) {
 
 /** Cancel in the editor. */
 function cancelEditTemplate() {
-  if (!leaveTemplateEditor()) return;
+  const print = tmplHost === 'print', zplView = print && !dz;
+  if (!leaveTemplateEditor(cancelEditTemplate)) return;
+  if (print) { initPrintTab(); if (zplView) dzClose(); return; }
   renderTemplates();
 }
 
 /** Clone: a copy right below the original, opened in the editor so it can be renamed and changed. */
 function cloneTemplate(id) {
-  if (!leaveTemplateEditor()) return;
+  if (!leaveTemplateEditor(() => cloneTemplate(id))) return;
   const i = S.templates.findIndex(t => t.id === id);
   if (i < 0) return;
   const src = S.templates[i];
@@ -3904,11 +4346,13 @@ const tmplCardCache = new Map();
  * other (Labelary's free tier allows about 3 requests per second).
  */
 async function renderTemplateCardPreviews() {
+  if (!labelaryOn()) return;
   for (const t of S.templates) {
     const box = document.getElementById(`tpl-preview-${t.id}`);
     if (!box || !t.zpl.trim()) continue;
     const w = t.labelWidth || 1, h = t.labelHeight || 0.5, dpmm = t.labelDpmm || 12;
     const key = `${dpmm}|${w}|${h}|${t.zpl}`;
+    box.classList.remove('cursor-pointer');
     try {
       if (!tmplCardCache.has(key)) {
         const blob = await labelaryFetch(labelaryUrl(dpmm, w, h, 0), `^XA${t.zpl}^XZ`);
@@ -3925,7 +4369,7 @@ async function renderTemplateCardPreviews() {
 /** + Add Template: an empty editor card at the top of the list. */
 function openAddTemplate() {
   if (tmplEditId === 'new') { focusTemplateEditor(); return; }
-  if (!leaveTemplateEditor()) return;
+  if (!leaveTemplateEditor(openAddTemplate)) return;
   tmplEditId = 'new';
   renderTemplates();
   focusTemplateEditor();
@@ -3933,6 +4377,12 @@ function openAddTemplate() {
 
 /** Open the editor of one template (kept for older callers; same as Edit). */
 function openEditTemplate(id) { if (tmplEditId !== id) toggleEditTemplate(id); }
+
+/** Explanations below every ZPL code field (template editor and ZPL view of Single Print). */
+function zplHelp() {
+  return `<p class="text-xs text-gray-500 mt-4 leading-relaxed border-t border-gray-100 pt-3">Learning ZPL: <a href="https://labelary.com/zpl.html" target="_blank" class="text-blue-600 underline">introduction with examples</a> (Labelary) · <a href="https://labelary.com/viewer.html" target="_blank" class="text-blue-600 underline">online ZPL viewer</a> to try code · <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg.html" target="_blank" class="text-blue-600 underline">Zebra ZPL programming guide</a> (complete command reference).</p>
+    <p class="text-xs text-gray-500 mt-2 leading-relaxed">Edit ZPL with care and do not change the printer settings in the template (<code>^MT</code>, <code>^MD</code>, <code>^PR</code>, <code>^PW</code>, <code>^MU</code>). Need help with the design? Write to <a href="mailto:support@fluics.com" class="text-blue-600 underline">support@fluics.com</a> or order a custom template at <a href="https://fluics.com/product/custom-template/" target="_blank" class="text-blue-600 underline">fluics.com/product/custom-template</a>.</p>`;
+}
 
 /**
  * Build the HTML body of the template editor (inside the template's card).
@@ -3942,15 +4392,11 @@ function openEditTemplate(id) { if (tmplEditId !== id) toggleEditTemplate(id); }
  * @returns {string} HTML string injected into the modal body.
  */
 function tmplBody(t) {
-  const withPreview = labelaryOn();
-  const gridStyle = withPreview
-    ? 'display:grid;grid-template-columns:1fr 220px;gap:1.25rem;align-items:start'
-    : '';
   const zplEvents = 'oninput="updateTmplTokenHint(); markTmplPreviewStale(); tmplDirty = true"';
-  const dimEvents = withPreview ? 'oninput="markTmplPreviewStale()"' : '';
-  const dpiEvent  = withPreview ? 'onchange="markTmplPreviewStale()"' : '';
+  const dimEvents = 'oninput="markTmplPreviewStale()"';
+  const dpiEvent  = 'onchange="markTmplPreviewStale()"';
   return `
-    <div style="${gridStyle}">
+    <div class="grid gap-5 items-start sm:grid-cols-[minmax(0,1fr)_220px]">
       <div class="space-y-4">
         <div>
           <label class="field-label">Template Name</label>
@@ -3974,7 +4420,12 @@ function tmplBody(t) {
             </select>
           </div>
         </div>
-        <div>
+        <div class="dz-tabs">
+          <button type="button" id="dz-tab-design" ${uiOn('click', 'dzOpen')}>Design</button>
+          <button type="button" id="dz-tab-zpl" ${uiOn('click', 'dzClose')} class="active">ZPL code</button>
+        </div>
+        <div id="dz-box" class="hidden"></div>
+        <div id="m-tzpl-box">
           <label class="field-label">ZPL Code</label>
           <textarea id="m-tzpl" class="zpl-editor w-full h-44 border border-gray-300 rounded px-3 py-2 resize-y"
             style="outline:none"
@@ -3985,17 +4436,15 @@ function tmplBody(t) {
           <div id="m-tzpl-tokens" class="text-xs text-gray-500 mt-2 leading-relaxed"></div>
         </div>
       </div>
-      ${withPreview ? `
       <div>
         <label class="field-label">Preview</label>
-        <div id="m-label-preview" title="Click to render" onclick="renderTmplModalPreview()" style="cursor:pointer;position:relative;background:#f3f4f6;border-radius:.375rem;min-height:120px;display:flex;align-items:center;justify-content:center;padding:.75rem;font-size:.75rem;color:#9ca3af;font-style:italic;border:1px solid #e5e7eb">
-          Click to render
+        <div id="m-label-preview" title="Click to render" ${uiOn('click', 'clickTmplPreview')} style="cursor:pointer;position:relative;background:#f3f4f6;border-radius:.375rem;min-height:120px;display:flex;align-items:center;justify-content:center;padding:.75rem;font-size:.75rem;color:#9ca3af;text-align:center;border:1px solid #e5e7eb">
+          ${labelaryOn() ? 'Click to render' : LABELARY_OFF_HINT}
         </div>
         <p class="text-xs text-gray-400 mt-1.5 leading-tight">Tokens shown as placeholders</p>
-      </div>` : ''}
+      </div>
     </div>
-    <p class="text-xs text-gray-500 mt-4 leading-relaxed border-t border-gray-100 pt-3">Learning ZPL: <a href="https://labelary.com/zpl.html" target="_blank" class="text-blue-600 underline">introduction with examples</a> (Labelary) · <a href="https://labelary.com/viewer.html" target="_blank" class="text-blue-600 underline">online ZPL viewer</a> to try code · <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg.html" target="_blank" class="text-blue-600 underline">Zebra ZPL programming guide</a> (complete command reference).</p>
-    <p class="text-xs text-gray-500 mt-2 leading-relaxed">Edit ZPL with care and do not change the printer settings in the template (<code>^MT</code>, <code>^MD</code>, <code>^PR</code>, <code>^PW</code>, <code>^MU</code>). Need help with the design? Write to <a href="mailto:support@fluics.com" class="text-blue-600 underline">support@fluics.com</a> or order a custom template at <a href="https://fluics.com/product/custom-template/" target="_blank" class="text-blue-600 underline">fluics.com/product/custom-template</a>.</p>`;
+    ${zplHelp()}`;
 }
 
 /**
@@ -4034,36 +4483,750 @@ function insertTmplToken(tok) {
   ta.selectionStart = ta.selectionEnd = start + text.length;
   updateTmplTokenHint();
   markTmplPreviewStale();
+  if (tmplHost === 'print') printZplInput();
 }
 
-/** Read the editor fields and create or update the template in state. */
-function saveTemplate() {
-  const name      = document.getElementById('m-tname2').value.trim();
-  const zpl       = document.getElementById('m-tzpl').value;
+/**
+ * Read the editor fields and create or update the template in state.
+ * @param {boolean} asNew - keep the open template and save a new one
+ * @returns {string|null} id of the saved template
+ */
+function saveTemplate(asNew = false) {
+  let name        = document.getElementById('m-tname2').value.trim();
+  const rawZpl    = document.getElementById('m-tzpl').value;
+  const zpl       = tmplHost === 'print' ? stripZplWrapper(rawZpl) : rawZpl;
   const labelWidth  = dimFromUnit(parseFloat(document.getElementById('m-tlbl-width').value))  || 1;
   const labelHeight = dimFromUnit(parseFloat(document.getElementById('m-tlbl-height').value)) || 0.5;
   const labelDpmm   = parseInt(document.getElementById('m-tlbl-dpmm').value)     || 12;
   if (!name) {
     document.getElementById('tmpl-editor-msg').textContent = 'Give the template a name.';
     document.getElementById('m-tname2').focus();
-    return;
+    return null;
   }
-  const existing = tmplEditId !== 'new' && S.templates.find(t => t.id === tmplEditId);
-  if (existing) Object.assign(existing, { name, zpl, labelWidth, labelHeight, labelDpmm });
-  else S.templates.unshift({ id: uid(), name, zpl, labelWidth, labelHeight, labelDpmm });
+  // The design stays only while it produces exactly this ZPL; hand-edited ZPL drops it.
+  const oldDesign = dz || dzParked || sanitizeDesign(S.templates.find(t => t.id === tmplEditId)?.design);
+  const design = oldDesign && isDesignZpl(oldDesign, zpl) ? sanitizeDesign(oldDesign) : undefined;
+  const existing = !asNew && tmplEditId !== 'new' && S.templates.find(t => t.id === tmplEditId);
+  if (!existing) {   // a new template never gets a name that is already in the list
+    const base = name, names = new Set(S.templates.map(t => t.name));
+    for (let n = 2; names.has(name); n++) name = n === 2 ? `${base} (copy)` : `${base} (copy ${n - 1})`;
+  }
+  const zplView = tmplHost === 'print' && !dz;   // stay in the view that is open
+  if (existing) { Object.assign(existing, { name, zpl, labelWidth, labelHeight, labelDpmm }); delete existing.design; if (design) existing.design = design; }
+  else S.templates.unshift({ id: uid(), name, zpl, labelWidth, labelHeight, labelDpmm, ...(design ? { design } : {}) });
   pruneStaleRows(S);
-  tmplEditId = null; tmplDirty = false; tmplPreviewStale = false;
+  tmplEditId = null; tmplDirty = false; tmplPreviewStale = false; dz = null; dzParked = null;
+  // Saved from Single Print: the template is selected there.
+  const savedId = existing ? existing.id : S.templates[0].id, print = tmplHost === 'print';
+  if (print) { modeSel().template = savedId; document.querySelector('#template-select option[value="new"]')?.remove(); }
+  tmplHost = 'settings';
   save(); renderTemplates(); initPrintTab();
+  if (zplView) dzClose();
+  const msg = print && document.getElementById('tmpl-editor-msg');
+  if (msg) { msg.className = 'text-xs text-green-700 mr-auto'; msg.textContent = `${existing ? 'Changes saved' : `Saved as new template "${name}"`}. Available in all print modes.`; }
+  return savedId;
 }
 
+/**
+ * Single Print is the place to design: a template with a design is always open
+ * on the canvas, a template written in ZPL in the ZPL view.
+ */
+function syncPrintDesigner() {
+  if (printMode !== 'single') return;
+  // Settings is open: closing it calls this again.
+  if (tmplHost === 'settings' && !document.getElementById('settings-modal').classList.contains('hidden')) return;
+  const id = document.getElementById('template-select').value;
+  if (tmplEditId && (tmplHost === 'settings' || tmplEditId === id)) return;
+  const t = S.templates.find(x => x.id === id);
+  if (t) {
+    tmplHost = 'print'; tmplEditId = t.id; tmplDirty = false;
+    renderTemplates();
+    printZplWarn();
+    renderZplPreview();
+    return;
+  }
+  document.getElementById('print-editor').innerHTML = `<div class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 text-sm text-gray-500">
+    <p class="mb-3">Select a template, start a new label design, or paste ZPL code.</p>
+    <button type="button" ${uiOn('click', 'newPrintDraft', 'design')} class="btn-primary text-sm">New label design</button>
+    <button type="button" ${uiOn('click', 'newPrintDraft', 'zpl')} class="btn-ghost text-sm">Paste ZPL</button></div>`;
+}
+
+/**
+ * Single Print: start a label that is not saved until Save template.
+ * @param {string} kind - 'design' (empty canvas) or 'zpl' (paste ZPL code)
+ */
+function newPrintDraft(kind) {
+  if (!leaveTemplateEditor(() => newPrintDraft(kind))) return;
+  tmplHost = 'print'; tmplEditId = 'new';
+  const ts = document.getElementById('template-select');
+  ts.insertAdjacentHTML('afterbegin', '<option value="new">New label (not saved)</option>');
+  ts.value = 'new';
+  renderTemplates();
+  if (kind === 'design') dzOpen();
+  tmplDirty = false;                 // nothing to lose yet
+  document.getElementById('single-copies').value = '';
+  renderFieldRows('single');
+  refreshPreview();
+  renderZplPreview();
+  document.getElementById(kind === 'design' ? 'm-tname2' : 'm-tzpl').focus();
+}
+
+/**
+ * Labelary picture beside the ZPL code of Single Print: the label as it would
+ * print now. Shares cache and running requests with section 4, so one label
+ * is requested once. Without consent only a placeholder, nothing is sent.
+ */
+async function renderZplPreview() {
+  const el = document.getElementById('m-label-preview');
+  if (!el || dz || tmplHost !== 'print') return;
+  tmplPreviewStale = false;
+  el.querySelector('.stale-hint')?.remove();
+  const note = html => { el.innerHTML = `<span>${html}</span>`; el.dataset.zpl = ''; };
+  if (!labelaryOn()) return note(LABELARY_OFF_HINT);
+  const t = currentTemplate(), zpl = currentLabelZpl();
+  if (!t?.zpl.trim() || !zpl) return note('Enter ZPL, then click here to render');
+  if (/\^X[AZ]/i.test(t.zpl)) return note('More than one label, see the warning');
+  const show = url => {
+    el.dataset.zpl = zpl;
+    el.innerHTML = `<img src="${url}" alt="Label preview" style="max-width:100%;border-radius:.25rem;box-shadow:0 1px 3px rgba(0,0,0,.12);border:1px solid #e5e7eb;image-rendering:crisp-edges">`;
+  };
+  if (labelaryCache.has(zpl)) return show(labelaryCache.get(zpl));
+  if (!el.querySelector('img')) note('Rendering…');
+  try {
+    const url = labelaryUrl(t.labelDpmm, t.labelWidth, t.labelHeight, 0);
+    if (!labelaryInflight.has(zpl)) labelaryInflight.set(zpl, labelaryFetch(url, zpl).finally(() => labelaryInflight.delete(zpl)));
+    const blob = await labelaryInflight.get(zpl);
+    if (currentLabelZpl() !== zpl || !el.isConnected) return;
+    if (!labelaryCache.has(zpl)) labelaryCache.set(zpl, URL.createObjectURL(blob));
+    show(labelaryCache.get(zpl));
+  } catch (e) {
+    note(`<span class="text-red-500">${esc(e.message)}</span>`);
+  }
+}
+
+/** Click on the picture: asks for Labelary consent once, then renders. */
+async function clickZplPreview() {
+  if (!labelaryOn() && !await enableLabelary()) return;
+  renderZplPreview();
+}
+
+/** Dim the picture when the code or a value changed; it renders when the field is left. */
+function markZplPreview() {
+  const el = document.getElementById('m-label-preview');
+  if (el && !dz && tmplHost === 'print' && el.dataset.zpl !== (currentLabelZpl() || '')) markTmplPreviewStale();
+}
+
+/** Preview boxes in Settings, Label templates: while Labelary is off a click asks for consent, then everything is rendered. */
+async function clickTmplPreview() {
+  if (!labelaryOn() && !await enableLabelary()) return;
+  if (document.getElementById('tmpl-editor')) renderTmplModalPreview();
+}
+
+function openTemplateSettings() { openSettings('templates'); }
+
+/** ZPL view of Single Print: the code or the label size was changed. */
+function printZplInput() {
+  tmplDirty = true;
+  clearLabelaryCache();   // the size is not part of the cache key
+  updateTmplTokenHint();
+  printZplWarn();
+  dzSyncPrint();
+  markTmplPreviewStale();
+}
+function printZplWarn() {
+  const el = document.getElementById('print-zpl-warn');
+  if (el) el.innerHTML = dz ? '' : zplWarnings(document.getElementById('m-tzpl').value).map(esc).join('<br>');
+}
+
+/** Save the design and continue in another print mode with it selected. */
+function saveAndUse(mode) {
+  const id = saveTemplate();
+  if (!id) return;
+  S.lastUsed.byMode ??= {};
+  S.lastUsed.byMode[mode] = { printer: modeSel().printer || '', ...S.lastUsed.byMode[mode], template: id };
+  // Each bundle has its own template: start a new one instead of changing an existing bundle.
+  if (mode === 'bundle') addBundle();
+  setPrintMode(mode);
+}
+
+/** Template dropdown of the print view; an open design with changes asks first. */
+function onTemplateSelect() {
+  const ts = document.getElementById('template-select'), id = ts.value;
+  if (tmplEditId && tmplHost === 'print') {
+    if (id === tmplEditId) return;
+    if (!leaveTemplateEditor(() => { ts.value = id; onTemplateSelect(); })) { ts.value = tmplEditId; return; }
+  }
+  document.getElementById('single-copies').value = '';   // a number of copies belongs to one label
+  refreshPreview();
+  syncPrintDesigner();
+  if (printMode === 'single') { renderFieldRows('single'); refreshPreview(); }
+}
+
+/** Editor of Single Print: name, then the canvas or the ZPL code with the label size. */
+function printDesignBody(t) {
+  const num = (id, name, v) => `<label class="text-xs text-gray-500">${name}<input id="${id}" type="number" min="0" step="any" value="${v}" ${uiOn('input', 'printZplInput')} class="field-input w-full"></label>`;
+  return `<div class="mb-3"><label class="field-label" for="m-tname2">Template name</label>
+      <div class="flex flex-wrap items-stretch gap-2">
+        <input id="m-tname2" type="text" value="${esc(t?.name || '')}" placeholder="e.g. Sample tube 25 x 12 mm" class="field-input flex-1" style="min-width:12rem" autocomplete="off" ${uiOn('input', 'dzNameChanged')}>
+        <div class="dz-tabs">
+          <button type="button" id="dz-tab-design" ${uiOn('click', 'dzOpen')}>Design</button>
+          <button type="button" id="dz-tab-zpl" ${uiOn('click', 'dzClose')} class="active">ZPL code</button>
+        </div>
+      </div></div>
+    <div id="dz-box" class="hidden"></div>
+    <div id="m-tzpl-box">
+      <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_220px] items-start"><div>
+      <textarea id="m-tzpl" spellcheck="false" class="zpl-editor w-full h-44 border border-gray-300 rounded px-3 py-2 resize-y" placeholder="Paste ZPL code here (with or without ^XA … ^XZ)" ${uiOn('input', 'printZplInput')}>${esc(t?.zpl || '')}</textarea>
+      <div id="print-zpl-warn" class="text-xs text-amber-700 mt-1"></div>
+      <div id="m-tzpl-tokens" class="text-xs text-gray-500 mt-2 leading-relaxed"></div>
+      <div class="grid grid-cols-3 gap-2 mt-2">
+        ${num('m-tlbl-width', `Width (${unitLabel()})`, dimToUnit(t?.labelWidth || 1))}
+        ${num('m-tlbl-height', `Height (${unitLabel()})`, dimToUnit(t?.labelHeight || 0.5))}
+        <label class="text-xs text-gray-500">Resolution<select id="m-tlbl-dpmm" ${uiOn('change', 'printZplInput')} class="field-input w-full">
+          ${[[12, '300 dpi'], [8, '203 dpi'], [6, '152 dpi']].map(([v, n]) => `<option value="${v}" ${(t?.labelDpmm || 12) == v ? 'selected' : ''}>${n}</option>`).join('')}
+        </select></label>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">Copy, sort or delete label templates: <button type="button" ${uiOn('click', 'openTemplateSettings')} class="text-blue-600 underline">Settings, Label templates</button></p>
+      <p class="text-xs text-gray-400 mt-2">Printed as it is, only the placeholders are filled in. The size is used for the preview. Check the preview before printing.</p>
+      </div><div>
+        <label class="field-label">Preview</label>
+        <div id="m-label-preview" title="Click to render" ${uiOn('click', 'clickZplPreview')} style="cursor:pointer;position:relative;background:#f3f4f6;border-radius:.375rem;min-height:120px;display:flex;align-items:center;justify-content:center;padding:.75rem;font-size:.75rem;color:#6b7280;text-align:center;border:1px solid #e5e7eb"></div>
+        <p class="text-xs text-gray-400 mt-1.5 leading-tight">Rendered by <a href="https://labelary.com" target="_blank" rel="noopener" class="underline hover:text-gray-600">Labelary</a> with the values of Label content</p>
+      </div></div>
+      ${zplHelp()}
+    </div>`;
+}
+function dzNameChanged() { tmplDirty = true; }
+
+/** Single Print: the rows, preview and print button follow the open design. */
+function dzSyncPrint() {
+  if (tmplHost !== 'print') return;
+  const key = templateTokens(currentTemplate()).join();
+  if (key !== dzTokenKey) { dzTokenKey = key; renderFieldRows('single'); }
+  refreshPreview();
+}
+let dzTokenKey = null;
+
 /** Delete a template after confirmation. Re-initialises the Print tab dropdown. */
-function deleteTemplate(id) {
-  if (!confirm('Delete this template?')) return;
-  if (tmplEditId === id) { tmplEditId = null; tmplDirty = false; }
+async function deleteTemplate(id) {
+  const name = S.templates.find(t => t.id === id)?.name || '';
+  if (!await askConfirm(`Delete the template "${name}"? This cannot be undone.`, { title: 'Delete template?', ok: 'Delete', danger: true })) return;
+  if (tmplEditId === id) { tmplEditId = null; tmplDirty = false; dz = null; }
   S.templates = S.templates.filter(t => t.id !== id);
   pruneStaleRows(S); // rows for placeholders only this template used are dropped
   save(); renderTemplates(); initPrintTab();
 }
+
+// ── Label designer (prototype) ───────────────────────────────────────────────
+//
+// Visual editor inside the template card. One way only: the design (stored as
+// template.design) generates the ZPL. A template whose ZPL was changed by hand
+// loses its design on save. Coordinates are dots from the label's top left
+// corner, 300 dpi only; margin is only drawn and warned about. Rest of the app: unchanged, it only sees the ZPL.
+//   design = { v: 1, w, h (dots), margin, elements[], samples{ TOKEN: text } }
+//   element = { id, type 'text'|'qr'|'dm'|'c128', x, y, rot 'N'|'R'|'I'|'B', data, size,
+//               height (c128), block, lines, align (text) }
+
+/** Clean copy of a design (stored or imported), or null. Only known keys, types and ranges survive. */
+function sanitizeDesign(d) {
+  if (!d || typeof d !== 'object' || d.v !== 1 || !Array.isArray(d.elements)) return null;
+  const num = (v, lo, hi, def) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def; };
+  const out = { v: 1, w: num(d.w, 20, 4000, 300), h: num(d.h, 20, 4000, 150), margin: num(d.margin, 0, 200, 20), elements: [], samples: {} };
+  d.elements.slice(0, 100).forEach((e, i) => {
+    if (!e || !['text', 'qr', 'dm', 'c128'].includes(e.type)) return;
+    const size = { text: [10, 400, 25], qr: [1, 10, 4], dm: [1, 30, 5], c128: [1, 10, 2] }[e.type];
+    out.elements.push({
+      id: 'e' + i, type: e.type, x: num(e.x, 0, 4000, 0), y: num(e.y, 0, 4000, 0),
+      rot: e.type !== 'qr' && ['N', 'R', 'I', 'B'].includes(e.rot) ? e.rot : 'N',
+      data: String(e.data ?? '').slice(0, 500), size: num(e.size, ...size),
+      height: num(e.height, 10, 2000, 50), block: num(e.block, 0, 4000, 0), lines: num(e.lines, 1, 20, 2),
+      align: ['L', 'C', 'R'].includes(e.align) ? e.align : 'L',
+    });
+  });
+  if (d.samples && typeof d.samples === 'object') Object.entries(d.samples).slice(0, 100).forEach(([k, v]) => {
+    if (/^\w+$/.test(k) && k !== '__proto__') out.samples[k] = String(v ?? '').slice(0, 200);
+  });
+  return out;
+}
+
+/** Width of ^A0 text in dots, from the character widths of the font as rendered by Labelary (ASCII; accents count as their base letter). */
+function designWidth(text, size) {
+  const W = [29.5,29.5,47.9,47.9,47.9,90.3,60.9,29.5,29.5,29.5,47.9,90.3,29.5,90.3,29.5,29.5,47.9,47.9,47.9,47.9,47.9,47.9,47.9,47.9,47.9,47.9,29.5,29.5,99.5,90.3,99.5,44.3,90.3,55.3,55.3,53.5,59,49.8,49.8,59,60.9,27.6,44.3,55.3,47.9,75.6,60.9,57.1,55.3,57.1,59,53.5,49.8,60.9,53.5,81.1,55.3,55.3,49.8,29.5,47.9,29.5,49.8,49.8,29.5,46.1,49.8,44.3,49.8,47.9,27.6,49.8,49.8,25.8,25.8,44.3,25.8,75.6,49.8,47.9,49.8,49.8,33.1,42.4,27.6,49.8,44.3,66.4,44.3,44.3,38.8,49.8,49.8,49.8,99.5];
+  return [...text.normalize('NFD').replace(/[\u0300-\u036f]/g, '')].reduce((n, c) => n + (W[c.codePointAt(0) - 32] || 100), 0) / 100 * size;
+}
+
+/**
+ * Lines of a text block. The app breaks the text itself, at spaces, and words
+ * that are too long after a hyphen or else anywhere: if the printer has to split a word (^FB) it prints an
+ * extra hyphen character there (an eth sign on FLUICS printers, with ^CI28 and
+ * ^CI34). Widths are taken a little too wide (4 %), so the printer never has
+ * to break a line again.
+ */
+function designWrap(text, block, size) {
+  const fits = t => designWidth(t, size) * 1.04 <= block;
+  const lines = [];
+  text.replace(/\r\n?/g, '\n').split('\n').forEach(par => {
+    let cur = '';
+    par.split(' ').forEach((word, i) => {
+      if (i && fits(cur + ' ' + word)) { cur += ' ' + word; return; }
+      if (i) { lines.push(cur); cur = ''; }
+      // Too long for a line of its own: break after hyphens, then anywhere.
+      (fits(word) ? [word] : word.match(/[^-]*-|[^-]+/g) || ['']).forEach(piece => {
+        if (cur && !fits(cur + piece)) { lines.push(cur); cur = ''; }
+        for (const c of piece) {
+          if (cur && !fits(cur + c)) { lines.push(cur); cur = ''; }
+          cur += c;
+        }
+      });
+    });
+    lines.push(cur);
+  });
+  while (lines.length > 1 && !lines[lines.length - 1].trim()) lines.pop();   // empty lines at the end need no space
+  return lines;
+}
+
+/**
+ * A designer text block at print time (called by subst): puts in the values,
+ * wraps the text and returns one single-line field per line. ^FB is not sent
+ * at all: FLUICS printers add a character (an eth sign) to its broken lines.
+ * Also for blocks edited by hand in a designer template (no ^FH_, other order,
+ * font width, line spacing). Anything else with ^FB is left as it is (null).
+ * @param {string} cmd  - everything between the previous ^FS and ^FD
+ * @param {string} data - field data
+ * @returns {string|null} complete fields; the last one without ^FS (subst adds the rest)
+ */
+function designBlock(cmd, data, val, issues) {
+  let fo, font, fb, ind = null, other = '';
+  for (const c of cmd.match(/\^[^^]*|[^^]+/g) || []) {
+    const t = c.trim();
+    let m;
+    if ((m = /^\^FO(\d+),(\d+)$/i.exec(t))) fo = m;
+    else if ((m = /^\^A0([NRIB]),(\d+)(?:,(\d+))?$/i.exec(t))) font = m;
+    else if ((m = /^\^FB(\d+)(?:,(\d*))?(?:,(-?\d*))?(?:,([LCRJ]?))?(?:,0?)?$/i.exec(t))) fb = m;
+    else if ((m = /^\^FH(.?)$/i.exec(t))) ind = m[1] || '_';
+    else if (/^\^F[^X]/i.test(t) || /\$\{/.test(t)) return null;   // other field commands (^FR, ^FT …): not a plain block
+    else other += c;
+  }
+  if (!fo || !font || !fb) return null;
+  const x = +fo[1], y = +fo[2], rot = font[1].toUpperCase(), h = +font[2], block = +fb[1], max = +fb[2] || 1;
+  const size = +font[3] || h;   // the width follows the font width, if one is given
+  const step = h + (+fb[3] || 0), align = (fb[4] || 'L').toUpperCase();
+  const hex = ind && new RegExp((/[\\^$.*+?()[\]{}|\/-]/.test(ind) ? '\\' : '') + ind + '([0-9A-Fa-f]{2})', 'g');
+  const text = data.split(/(\$\{\w+\})/).map(p => {
+    const t = /^\$\{(\w+)\}$/.exec(p);
+    if (t) return val(t[1]);
+    if (hex && ind === '\\') p = p.replace(hex, (a, n) => String.fromCharCode(parseInt(n, 16)));
+    p = p.replace(/\\&|\\\\/g, c => (c === '\\&' ? '\n' : '\\'));
+    return hex && ind !== '\\' ? p.replace(hex, (a, n) => String.fromCharCode(parseInt(n, 16))) : p;
+  }).join('');
+  const lines = designWrap(text, block, size);
+  if (lines.length > max && issues) issues.push(`the text "${text.slice(0, 40)}" needs ${lines.length} lines, the text block of the template has ${max}. Use a larger block, more lines or a smaller font.`);
+  const font0 = `^A0${rot},${h}${font[3] ? ',' + font[3] : ''}`;
+  return other + lines.map((l, i) => {
+    const w = designWidth(l, size), off = align === 'C' ? (block - w) / 2 : align === 'R' ? block - w : 0;
+    const back = (lines.length - 1 - i) * step, end = Math.max(0, block - w - off);   // same box as drawn by dzPlaced
+    const [px, py] = { N: [x + off, y + i * step], R: [x + back, y + off], I: [x + end, y + back], B: [x + i * step, y + end] }[rot];
+    const enc = l.replace(/[\^~_]/g, c => '_' + c.charCodeAt(0).toString(16).toUpperCase());
+    return `^FO${Math.max(0, Math.round(px))},${Math.max(0, Math.round(py))}${font0}${enc !== l ? '^FH_' : ''}^FD${enc}`;
+  }).join('^FS\n');
+}
+
+/** Field data of an element: ^FH_ only where characters need it (always in blocks, where \ is a command). Tokens stay as they are. */
+function designField(e) {
+  const block = e.type === 'text' && e.block > 0;
+  const data = e.data.replace(/\r/g, '');
+  const parts = data.split(/(\$\{\w+\})/);
+  const isTok = p => /^\$\{\w+\}$/.test(p);
+  const needs = block || parts.some(p => !isTok(p) && /[\^~]/.test(p));
+  const body = parts.map(p => {
+    if (isTok(p)) return p;
+    if (block) p = p.replace(/\\/g, '\\\\').replace(/\n/g, '\\&'); else p = p.replace(/\n/g, ' ');
+    return needs ? p.replace(/[\^~_]/g, c => '_' + c.charCodeAt(0).toString(16).toUpperCase()) : p;
+  }).join('');
+  return `${needs ? '^FH_' : ''}^FD${e.type === 'qr' ? 'LA,' : ''}${body}^FS`;
+}
+
+/**
+ * ZPL of a design. The printer settings are those of the FLUICS default
+ * templates. Positions count from the label's top left corner (^LH0,0). A QR code prints
+ * 10 dots below its ^FO (the ^BY height), so it is moved up by 10.
+ * Text blocks are wrapped later, at print time, without ^FB (designBlock).
+ * oldForm: as designs were written first, with ^LH at the margin (same print);
+ * only to recognise saved templates (isDesignZpl).
+ */
+function designZpl(d, oldForm = false) {
+  const lines = ['^FX PRINT Studio designer ^FS', '^MTT^MUD,300,300', '^PR2', '^MD30', `^PW${d.w}`, oldForm ? `^LH${d.margin},${d.margin}` : '^LH0,0', '^CI28'];
+  const org = oldForm ? d.margin : 0;
+  d.elements.forEach(e => {
+    const fo = `^FO${Math.max(0, e.x - org)},${Math.max(0, e.y - org - (e.type === 'qr' ? 10 : 0))}`;
+    const cmd = {
+      text: () => `^A0${e.rot},${e.size}` + (e.block > 0 ? `^FB${e.block},${e.lines},0,${e.align}` : ''),
+      qr: () => `^BY2,3,10^BQN,2,${e.size}`,
+      dm: () => '^BX' + e.rot + `,${e.size},200,,,,` + '`',
+      c128: () => `^BY${e.size}^BC${e.rot},${e.height},N,N,N,A`,
+    }[e.type]();
+    lines.push(fo + cmd + designField(e));
+  });
+  return lines.join('\n');
+}
+
+/**
+ * Label sizes of the FLUICS standard templates (300 dpi dots): w = ^PW, margin = ^LH.
+ * GHS labels run through the printer with the narrow side across, so their canvas is upright.
+ */
+const DZ_PRESETS = {
+  s23x17: { name: '22.9 × 17.0 mm (Type 9)', w: 273, h: 201, margin: 20 },
+  s25x13: { name: '25.4 × 12.7 mm (Type 1, Type 2)', w: 300, h: 150, margin: 20 },
+  s24x13c: { name: '24 × 12.7 mm + Ø 11 mm (Type 12)', w: 420, h: 150, margin: 20, circle: 130, rect: 283 },
+  s39x9: { name: '38.9 × 9.1 mm (Type 11, PCR strips)', w: 460, h: 107, margin: 15 },
+  s51x25: { name: '50.8 × 25.4 mm (Type 4, Type 10)', w: 600, h: 300, margin: 25 },
+  s54x7: { name: '54 × 6.9 mm (Type 8)', w: 640, h: 81, margin: 10 },
+  s65x35: { name: '65 × 35 mm (Type 6, upright)', w: 420, h: 768, margin: 12 },
+  s100x54: { name: '100 × 54 mm (Type 7, upright)', w: 638, h: 1181, margin: 12 },
+};
+let dzOwnSize = false;   // the fields for an own label size are shown
+function dzPresetKey() { return Object.keys(DZ_PRESETS).find(k => DZ_PRESETS[k].w === dz.w && DZ_PRESETS[k].h === dz.h); }
+const DZ_TYPES = { text: 'Text', qr: 'QR code', dm: 'DataMatrix', c128: 'Code 128' };
+/** Open design (working copy) and editor state; null when the ZPL view is shown. */
+let tmplHost = 'settings'; // where the open template editor is shown: 'settings' or 'print' (Single Print)
+let dzParked = null;   // working design while the ZPL view is shown
+let dz = null, dzSel = '', dzUndoStack = [], dzDrag = null;
+
+/** Is this the ZPL of the design, in the current or the first form? */
+function isDesignZpl(d, zpl) { return designZpl(d) === zpl || designZpl(d, true) === zpl; }
+
+/** The template's design, only if it still produces exactly the stored ZPL. */
+function designOf(t) {
+  const d = sanitizeDesign(t?.design);
+  return d && isDesignZpl(d, t.zpl) ? d : null;
+}
+
+/** bwip-js draws the barcodes on the canvas. Loaded on first use, pinned by hash. Data stays in the browser. */
+let dzLib = null;
+function loadBarcodeLib() {
+  dzLib ??= new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js';
+    sc.integrity = 'sha256-ew0tHKLxz8uyA4OsyfIpkb0MCspv1bgIKNN5IssMHNY=';
+    sc.crossOrigin = 'anonymous';
+    sc.onload = resolve;
+    sc.onerror = () => { dzLib = null; reject(new Error('Could not load the barcode library')); };
+    document.head.appendChild(sc);
+  });
+  return dzLib;
+}
+
+/** Switch the open editor to the designer. Existing ZPL is replaced (asked first). */
+function dzOpen(replace = false) {
+  const ta = document.getElementById('m-tzpl');
+  if (!ta || dz) return;
+  const t = S.templates.find(x => x.id === tmplEditId);
+  const stored = sanitizeDesign(t?.design);
+  if (dzParked && designZpl(dzParked) === ta.value) dz = dzParked;
+  else if (stored && isDesignZpl(stored, ta.value)) { dz = stored; ta.value = designZpl(dz); }
+  else {
+    if (ta.value.trim() && !replace) {
+      askConfirm('The designer cannot read ZPL code that was pasted or changed by hand.\n\nStart an empty design and replace this ZPL code?', { title: 'Replace ZPL code?', ok: 'Start empty design', danger: true })
+        .then(yes => { if (yes) dzOpen(true); });
+      return;
+    }
+    const w = Math.round((dimFromUnit(parseFloat(document.getElementById('m-tlbl-width').value)) || 1) * 300);
+    const h = Math.round((dimFromUnit(parseFloat(document.getElementById('m-tlbl-height').value)) || 0.5) * 300);
+    // A size rounded to 0.1 mm still means the FLUICS label it is.
+    const p = Object.values(DZ_PRESETS).find(x => Math.abs(x.w - w) <= 2 && Math.abs(x.h - h) <= 2);
+    dz = { v: 1, w: p?.w ?? w, h: p?.h ?? h, margin: p?.margin ?? (w >= 600 ? 25 : 20), elements: [], samples: {} };
+    ta.value = designZpl(dz);
+    tmplDirty = true;
+  }
+  dzParked = null;
+  dzSel = ''; dzUndoStack = []; dzOwnSize = false;
+  renderDz();
+  dzSyncPrint();
+  loadBarcodeLib().then(renderDzCanvas, () => dzWarn());
+}
+
+/** Back to the ZPL view. The design is kept on save as long as the ZPL is not changed. */
+function dzClose() {
+  if (!dz) return;
+  dzParked = dz; dz = null;
+  renderDz(); updateTmplTokenHint(); printZplWarn(); renderZplPreview();
+}
+
+/** Snapshot for Undo; call before changing dz. */
+function dzSnap() { dzUndoStack.push(JSON.stringify(dz)); if (dzUndoStack.length > 50) dzUndoStack.shift(); }
+function dzUndo() { if (!dzUndoStack.length) return; dz = JSON.parse(dzUndoStack.pop()); if (!dz.elements.some(e => e.id === dzSel)) dzSel = ''; dzDims(); dzChanged(); renderDz(); }
+
+/** After every change: regenerate the ZPL and redraw. */
+function dzChanged() {
+  document.getElementById('m-tzpl').value = designZpl(dz);
+  tmplDirty = true;
+  markTmplPreviewStale();
+  renderDzCanvas();
+  const msg = document.getElementById('tmpl-editor-msg');
+  if (msg && tmplHost === 'print') msg.textContent = '';
+  if (!dzDrag) dzSyncPrint();
+}
+
+function dzDims() {
+  document.getElementById('m-tlbl-width').value = dimToUnit(dz.w / 300);
+  document.getElementById('m-tlbl-height').value = dimToUnit(dz.h / 300);
+  document.getElementById('m-tlbl-dpmm').value = '12';
+}
+/** Label size list: a FLUICS size, or 'own' to enter one. */
+function dzPreset(key) {
+  if (!dz) return;
+  dzOwnSize = key === 'own';
+  const p = DZ_PRESETS[key];
+  if (p) dzResize(p.w, p.h, p.margin); else renderDz();
+}
+/** Own label size, entered in the unit of the settings. */
+function dzOwn(key, value) {
+  const v = parseFloat(String(value).replace(',', '.'));
+  if (!dz || !(v >= 0)) { renderDz(); return; }
+  const dots = Math.round(dimFromUnit(v) * 300);
+  dzResize(key === 'w' ? dots : dz.w, key === 'h' ? dots : dz.h, key === 'margin' ? dots : dz.margin);
+}
+function dzResize(w, h, margin) {
+  dzSnap();
+  const lim = v => Math.min(4000, Math.max(20, v));
+  dz.w = lim(w); dz.h = lim(h);
+  dz.margin = Math.max(0, Math.min(margin, 200, Math.floor(Math.min(dz.w, dz.h) / 2) - 5));
+  dz.elements.forEach(dzClamp);
+  dzDims(); dzChanged(); renderDz();
+}
+function dzAdd(type) {
+  dzSnap();
+  const data = { text: 'Text', qr: '${NAME}', dm: '${NAME}', c128: '${NAME}' }[type];
+  let n = 0; while (dz.elements.some(e => e.id === 'n' + n)) n++;
+  const size = { text: 25, qr: 4, dm: 5, c128: 2 }[type];
+  const e = { id: 'n' + n, type, x: dz.margin, y: Math.max(dz.margin, type === 'qr' ? 10 : 0), rot: 'N', data, size, height: 50, block: 0, lines: 2, align: 'L' };
+  dz.elements.push(e); dzSel = e.id;
+  dzChanged(); renderDz();
+}
+function dzSelected() { return dz?.elements.find(e => e.id === dzSel); }
+/** Property panel: change one value of the selected element. */
+function dzSet(key, value) {
+  const e = dzSelected();
+  if (!e || !['x', 'y', 'rot', 'data', 'size', 'height', 'block', 'lines', 'align'].includes(key)) return;
+  if (!['rot', 'data', 'align'].includes(key) && !Number.isFinite(parseInt(value))) return;
+  dzSnap();
+  const c = sanitizeDesign({ ...dz, elements: [{ ...e, [key]: value }] }).elements[0];
+  Object.assign(e, c, { id: e.id });
+  dzClamp(e);
+  dzChanged();
+  if (key === 'data') renderDzSamples();
+}
+function dzInsertToken(tok) {
+  const e = dzSelected();
+  if (!e) return;
+  dzSnap(); e.data += `\${${tok}}`;
+  dzChanged(); renderDz();
+}
+function dzDelete() {
+  if (!dzSelected()) return;
+  dzSnap(); dz.elements = dz.elements.filter(e => e.id !== dzSel); dzSel = '';
+  dzChanged(); renderDz();
+}
+function dzSample(tok, v) { dz.samples[tok] = v; tmplDirty = true; markTmplPreviewStale(); renderDzCanvas(); }
+/** Values for the drawing: in Single Print the entered ones, otherwise the sample values, then the placeholder name. */
+function dzSampleVars() {
+  const live = tmplHost === 'print' ? buildSingleLabels()[0] || {} : {};
+  return Object.fromEntries(templateTokens({ zpl: designZpl(dz) }).map(t => [t, live[t] || dz.samples[t] || (isDateToken(t) ? formatDate(todayIso(), dateFmt()) : t)]));
+}
+function dzText(e) { const v = dzSampleVars(); return e.data.replace(/\$\{(\w+)\}/g, (m, k) => v[k] ?? ''); }
+/** Keep an element on the label. A QR code prints 10 dots below its ^FO, so it cannot start higher than that. */
+function dzClamp(e) {
+  e.x = Math.max(0, Math.min(dz.w - 5, e.x));
+  e.y = Math.max(e.type === 'qr' ? 10 : 0, Math.min(dz.h - 5, e.y));
+}
+
+/** Drawing of ^A0 text: the substitute font is scaled to the printer font (width, height, baseline). */
+const DZ_FONT_H = 1.06, DZ_BASE = 0.76;
+
+/** Drawing of an element without rotation: { w, h, svg, error? }. */
+function dzShape(e) {
+  const text = dzText(e);
+  if (e.type === 'text') {
+    let lines = [text.replace(/\n/g, ' ')];
+    if (e.block > 0) {
+      lines = designWrap(text, e.block, e.size);
+    }
+    const cut = e.block > 0 && lines.length > e.lines;
+    const widths = lines.map(l => designWidth(l, e.size));
+    const w = e.block || Math.max(8, ...widths);
+    const svg = lines.map((l, i) => l ? `<text transform="translate(${e.align === 'C' && e.block ? (w - widths[i]) / 2 : e.align === 'R' && e.block ? w - widths[i] : 0},${(i + DZ_BASE) * e.size}) scale(1,${DZ_FONT_H})" textLength="${widths[i]}" lengthAdjust="spacingAndGlyphs" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="${e.size}" xml:space="preserve">${esc(l)}</text>` : '').join('');
+    return { w, h: e.size * lines.length, svg, error: cut ? `the text needs ${lines.length} lines, Max. lines is ${e.lines}. Labels like this are refused when printing: raise Max. lines, widen the block or use a smaller font` : '' };
+  }
+  const fallback = (msg) => { const s = e.type === 'c128' ? [e.size * 100, e.height] : [e.size * 25, e.size * 25]; return { w: s[0], h: s[1], svg: `<rect width="${s[0]}" height="${s[1]}" fill="#d1d5db"/>`, error: msg }; };
+  if (!window.bwipjs) return fallback('barcode drawing is not loaded, size is a guess');
+  if (!text) return fallback('no content');
+  try {
+    const r = bwipjs.raw({ qr: 'qrcode', dm: 'datamatrix', c128: 'code128' }[e.type], text, e.type === 'qr' ? { eclevel: 'L' } : {})[0];
+    let path = '';
+    if (e.type === 'c128') {
+      let x = 0;
+      r.sbs.forEach((n, i) => { if (i % 2 === 0) path += `M${x * e.size} 0h${n * e.size}v${e.height}h${-n * e.size}z`; x += n; });
+      return { w: x * e.size, h: e.height, svg: `<path d="${path}"/>` };
+    }
+    const m = e.size;
+    r.pixs.forEach((p, i) => { if (p) path += `M${(i % r.pixx) * m} ${Math.floor(i / r.pixx) * m}h${m}v${m}h${-m}z`; });
+    return { w: r.pixx * m, h: r.pixy * m, svg: `<path d="${path}"/>` };
+  } catch (err) { return fallback('this content cannot be encoded'); }
+}
+
+/** Element on the label: rotated drawing plus the bounding box. */
+function dzPlaced(e) {
+  const s = dzShape(e), turned = e.rot === 'R' || e.rot === 'B';
+  const w = turned ? s.h : s.w, h = turned ? s.w : s.h;
+  const tf = { N: '', R: `translate(${s.h},0) rotate(90)`, I: `translate(${s.w},${s.h}) rotate(180)`, B: `translate(0,${s.w}) rotate(270)` }[e.rot];
+  return { ...s, w, h, svg: `<g transform="translate(${e.x},${e.y}) ${tf}">${s.svg}</g>` };
+}
+
+function renderDz() {
+  const box = document.getElementById('dz-box'), zplBox = document.getElementById('m-tzpl-box');
+  if (!box) return;
+  document.getElementById('dz-tab-design').className = dz ? 'active' : '';
+  document.getElementById('dz-tab-zpl').className = dz ? '' : 'active';
+  zplBox.classList.toggle('hidden', !!dz);
+  box.classList.toggle('hidden', !dz);
+  ['m-tlbl-width', 'm-tlbl-height', 'm-tlbl-dpmm'].forEach(id => { document.getElementById(id).disabled = !!dz; });
+  if (!dz) { box.innerHTML = ''; return; }
+  const cur = dzOwnSize ? null : dzPresetKey(), own = !cur;
+  const num = (key, name) => `<label class="text-xs text-gray-500">${name} (${unitLabel()})<input type="number" min="0" step="any" value="${dimToUnit(Math.round(dz[key] / 300 * 1000) / 1000)}" ${uiOn('change', 'dzOwn', key, { $: 'value' })} class="field-input w-24 block"></label>`;
+  box.innerHTML = `
+    <div class="flex flex-wrap items-end gap-2 mb-3">
+      <div><label class="field-label" for="dz-size">Label size</label>
+      <select id="dz-size" ${uiOn('change', 'dzPreset', { $: 'value' })} class="field-input" style="max-width:100%">
+        ${Object.entries(DZ_PRESETS).map(([k, p]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+        <option value="own" ${own ? 'selected' : ''}>Own size…</option>
+      </select></div>
+      ${own ? num('w', 'Width') + num('h', 'Height') + num('margin', 'Margin') : ''}
+    </div>
+    <div class="flex flex-wrap items-center gap-2 mb-2">
+      ${Object.entries(DZ_TYPES).map(([k, n]) => `<button type="button" ${uiOn('click', 'dzAdd', k)} class="btn-ghost text-xs">+ ${n}</button>`).join('')}
+      <button type="button" ${uiOn('click', 'dzUndo')} class="btn-ghost text-xs">Undo</button>
+    </div>
+    <div class="${tmplHost === 'print' ? 'grid gap-4 lg:grid-cols-2' : ''}"><div>
+    <svg id="dz-svg" tabindex="0" viewBox="${dzViewBox(dz)}" style="display:block;width:100%;max-height:22rem;background:#e5e7eb;touch-action:none;outline-offset:2px;border-radius:.375rem"></svg>
+    <div id="dz-warn" class="text-xs text-amber-700 mt-1"></div></div>
+    <div id="dz-props" class="${tmplHost === 'print' ? '' : 'mt-3'}"></div></div>
+    <div id="dz-samples" class="mt-3"></div>
+    <p class="text-xs text-gray-400 mt-2">Drawn in your browser, nothing is sent out. Text is drawn with a similar font, the printer's own font differs slightly. Dotted line: recommended margin. Arrow keys move the selected element by 1 dot (Shift: 10). Check every design with a test print.</p>`;
+  renderDzCanvas(); renderDzProps(); renderDzSamples();
+}
+
+function dzWarn(list) {
+  const el = document.getElementById('dz-warn');
+  if (el) el.innerHTML = (list || ['Barcode drawing could not be loaded (no internet connection?). Barcodes are shown as grey boxes.']).map(esc).join('<br>');
+}
+
+/** Space around the label on the canvas, so that its edge is visible on all sides. */
+function dzViewBox(d) { const p = Math.max(5, Math.round(d.w * 0.015)); return `${-p} ${-p} ${d.w + 2 * p} ${d.h + 2 * p}`; }
+
+/** White label area with its edge. Type 12: a circle and a rectangle side by side (positions approximate). */
+function dzShapeBackground(d) {
+  const edge = 'fill="#fff" stroke="#6b7280" stroke-width="1.5" vector-effect="non-scaling-stroke"';
+  const p = Object.values(DZ_PRESETS).find(x => x.w === d.w && x.h === d.h);
+  return p?.circle
+    ? `<circle cx="${p.circle / 2}" cy="${d.h / 2}" r="${p.circle / 2}" ${edge}/><rect x="${d.w - p.rect}" width="${p.rect}" height="${d.h}" rx="8" ${edge}/>`
+    : `<rect width="${d.w}" height="${d.h}" rx="8" ${edge}/>`;
+}
+
+function renderDzCanvas() {
+  const svg = document.getElementById('dz-svg');
+  if (!svg || !dz) return;
+  const warn = [];
+  let sel = '', overMargin = 0;
+  const body = dz.elements.map(e => {
+    const p = dzPlaced(e), name = `${DZ_TYPES[e.type]} "${e.data.slice(0, 30)}"`;
+    if (p.error) warn.push(`${name}: ${p.error}.`);
+    const slack = e.type === 'text' && (e.rot === 'N' || e.rot === 'I') ? e.size * 0.2 : 0;   // line height below the letters
+    if (e.x + p.w > dz.w + 1 || e.y + p.h - slack > dz.h + 1) warn.push(`${name} reaches beyond the label with these values.`);
+    else if (e.x < dz.margin || e.y < dz.margin || e.x + p.w > dz.w - dz.margin + 1 || e.y + p.h - slack > dz.h - dz.margin + 1) overMargin++;
+    if (e.type === 'dm' && dzText(e).includes('`')) warn.push(`${name}: the character \` cannot be printed in a DataMatrix code.`);
+    if (e.type === 'qr' && e.size < 3 || e.type === 'dm' && e.size < 3 || e.type === 'c128' && e.size < 2) warn.push(`${name}: very small modules, check that it scans.`);
+    if (e.id === dzSel) sel = `<rect x="${e.x}" y="${e.y}" width="${p.w}" height="${p.h}" fill="none" stroke="#2563eb" stroke-width="2" vector-effect="non-scaling-stroke"/><rect data-dz-size="1" x="${e.x + p.w - 5}" y="${e.y + p.h - 5}" width="10" height="10" fill="#2563eb" style="cursor:nwse-resize"/>`;
+    return `<g data-dz-el="${esc(e.id)}" style="cursor:move">${p.svg}<rect x="${e.x}" y="${e.y}" width="${p.w}" height="${p.h}" fill="transparent"/></g>`;
+  }).join('');
+  svg.setAttribute('viewBox', dzViewBox(dz));
+  const shape = dzShapeBackground(dz);
+  svg.innerHTML = `${shape}<rect x="${dz.margin}" y="${dz.margin}" width="${dz.w - 2 * dz.margin}" height="${dz.h - 2 * dz.margin}" fill="none" stroke="#d1d5db" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>${body}${sel}`;
+  if (overMargin) warn.push(`${overMargin} element${overMargin !== 1 ? 's cross' : ' crosses'} the dotted margin: parts near the edge can be cut off if the label is slightly off.`);
+  dzWarn(warn);
+}
+
+function renderDzProps() {
+  const el = document.getElementById('dz-props');
+  if (!el || !dz) return;
+  const e = dzSelected();
+  if (!e) { el.innerHTML = '<p class="text-sm font-medium text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">Add an element, or click one on the label to change it.</p>'; return; }
+  const num = (key, name, tip = '') => `<label class="block min-w-0 text-xs text-gray-500" title="${tip}"><span class="block truncate mb-0.5">${name}</span><input id="dz-p-${key}" type="number" value="${e[key]}" ${uiOn('input', 'dzSet', key, { $: 'value' })} class="field-input w-full" autocomplete="off"></label>`;
+  const opt = (key, name, o) => `<label class="block min-w-0 text-xs text-gray-500"><span class="block truncate mb-0.5">${name}</span><select ${uiOn('change', 'dzSet', key, { $: 'value' })} class="field-input w-full">${o.map(([v, n]) => `<option value="${v}" ${e[key] === v ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`;
+  const toks = [...new Set(['NAME', 'DATE', ...templateTokens({ zpl: designZpl(dz) }), ...allTemplateTokens()])];
+  el.innerHTML = `
+    <label class="field-label">${DZ_TYPES[e.type]}: content</label>
+    <textarea id="dz-p-data" rows="${e.type === 'text' && e.block ? 2 : 1}" ${uiOn('input', 'dzSet', 'data', { $: 'value' })} class="field-input w-full">${esc(e.data)}</textarea>
+    <div class="my-1">${toks.map(t => `<button type="button" ${uiOn('click', 'dzInsertToken', t)} class="text-xs mr-1 mb-1 px-1.5 py-0.5 rounded border bg-gray-50 border-gray-200"><code>\${${esc(t)}}</code></button>`).join('')}</div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
+      ${num('x', 'X (dots)')}${num('y', 'Y (dots)')}${num('size', e.type === 'text' ? 'Font height' : 'Module size')}
+      ${e.type === 'c128' ? num('height', 'Bar height') : ''}
+      ${e.type === 'text' ? num('block', 'Block width', '0 = no block: one line, no wrapping') + num('lines', 'Max. lines') + opt('align', 'Block align', [['L', 'Left'], ['C', 'Center'], ['R', 'Right']]) : ''}
+      ${e.type === 'qr' ? '' : opt('rot', 'Rotation', [['N', '0°'], ['R', '90°'], ['I', '180°'], ['B', '270°']])}
+    </div>
+    <button type="button" ${uiOn('click', 'dzDelete')} class="text-xs text-red-500 hover:underline mt-2">Delete element</button>`;
+}
+
+function renderDzSamples() {
+  const el = document.getElementById('dz-samples');
+  if (!el || !dz) return;
+  if (tmplHost === 'print') { el.innerHTML = ''; return; }   // the values are entered under Label content
+  const toks = templateTokens({ zpl: designZpl(dz) });
+  el.innerHTML = toks.length ? `<div class="field-label">Sample values (drawing only; use the longest real value)</div><div class="grid grid-cols-2 sm:grid-cols-3 gap-2">${toks.map(t => `<label class="text-xs text-gray-500"><code>${esc(t)}</code><input type="text" value="${esc(dz.samples[t] || '')}" placeholder="${esc(t)}" ${uiOn('input', 'dzSample', t, { $: 'value' })} class="field-input w-full" autocomplete="off"></label>`).join('')}</div>` : '';
+}
+
+/** Pointer position in dots. */
+function dzPoint(ev) {
+  const svg = document.getElementById('dz-svg'), p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(svg.getScreenCTM().inverse());
+  return { x: p.x, y: p.y };
+}
+document.addEventListener('pointerdown', ev => {
+  const svg = ev.target.closest?.('#dz-svg');
+  if (!svg || !dz) return;
+  ev.preventDefault(); svg.focus({ preventScroll: true });
+  const resize = ev.target.closest('[data-dz-size]'), hit = ev.target.closest('[data-dz-el]');
+  if (!resize) { dzSel = hit?.getAttribute('data-dz-el') || ''; renderDzCanvas(); renderDzProps(); }
+  const e = dzSelected();
+  if (!e) return;
+  const p = dzPoint(ev), b = dzPlaced(e);
+  dzDrag = { resize: !!resize, p, x: e.x, y: e.y, size: e.size, w: b.w, h: b.h, height: e.height, block: e.block, snapped: false };
+});
+document.addEventListener('pointermove', ev => {
+  const e = dzDrag && dzSelected();
+  if (!e) return;
+  const p = dzPoint(ev), dx = p.x - dzDrag.p.x, dy = p.y - dzDrag.p.y;
+  if (!dzDrag.snapped) { if (Math.hypot(dx, dy) < 2) return; dzSnap(); dzDrag.snapped = true; }
+  if (dzDrag.resize) {
+    const turned = e.rot === 'R' || e.rot === 'B', along = turned ? dy : dx, across = turned ? dx : dy;
+    const len = turned ? dzDrag.h : dzDrag.w, thick = turned ? dzDrag.w : dzDrag.h;
+    if (e.type === 'text' && e.block) e.block = Math.max(10, Math.round(dzDrag.block + along));
+    else if (e.type === 'text') e.size = Math.min(400, Math.max(10, Math.round(dzDrag.size * (thick + across) / thick)));
+    else {
+      e.size = Math.max(1, Math.min(e.type === 'dm' ? 30 : 10, Math.round(dzDrag.size * (len + along) / len)));
+      if (e.type === 'c128') e.height = Math.max(10, Math.round(dzDrag.height + across));
+    }
+  } else { e.x = Math.round(dzDrag.x + dx); e.y = Math.round(dzDrag.y + dy); dzClamp(e); }
+  dzChanged();
+});
+['pointerup', 'pointercancel'].forEach(n => document.addEventListener(n, () => { if (dzDrag) { const moved = dzDrag.snapped; dzDrag = null; renderDzProps(); if (moved) dzSyncPrint(); if (tmplPreviewStale && labelaryOn()) renderTmplModalPreview(); } }));
+document.addEventListener('keydown', ev => {
+  if (ev.target.id !== 'dz-svg' || !dz) return;
+  if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'z') { ev.preventDefault(); dzUndo(); return; }
+  const e = dzSelected(), step = ev.shiftKey ? 10 : 1;
+  const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[ev.key];
+  if (!e) return;
+  if (d) { ev.preventDefault(); dzSnap(); e.x += d[0] * step; e.y += d[1] * step; dzClamp(e); dzChanged(); renderDzProps(); }
+  else if (ev.key === 'Delete' || ev.key === 'Backspace') { ev.preventDefault(); dzDelete(); }
+});
 
 // ── Template editor preview triggers ─────────────────────────────────────────────
 
@@ -4112,6 +5275,8 @@ function markTmplPreviewStale() {
 async function renderTmplModalPreview() {
   const container = document.getElementById('m-label-preview');
   if (!container) return;
+  if (tmplHost === 'print') return renderZplPreview();
+  if (!labelaryOn()) { tmplPreviewStale = false; container.innerHTML = `<span>${LABELARY_OFF_HINT}</span>`; return; }
   tmplPreviewStale = false;
 
   const rawZpl  = (document.getElementById('m-tzpl')?.value || '').trim();
@@ -4124,7 +5289,7 @@ async function renderTmplModalPreview() {
     return;
   }
 
-  const zpl = `^XA${rawZpl}^XZ`;
+  const zpl = `^XA${dz ? subst(rawZpl, dzSampleVars()) : rawZpl}^XZ`;
 
   // Show spinner only when there is no existing image yet.
   container.querySelector('.stale-hint')?.remove();
@@ -4305,8 +5470,8 @@ function exportAuditLog() {
 }
 
 /** Clear the entire audit log after confirmation. This action is irreversible. */
-function clearAuditLog() {
-  if (!confirm('Clear the entire audit log? This cannot be undone.')) return;
+async function clearAuditLog() {
+  if (!await askConfirm('Clear the entire audit log? This cannot be undone.', { title: 'Clear audit log?', ok: 'Clear', danger: true })) return;
   S.auditLog = [];
   save();
   renderAuditLog();
@@ -4349,8 +5514,26 @@ const UI_HANDLERS = {
   cloneTemplate: id => cloneTemplate(id),
   cancelEditTemplate: () => cancelEditTemplate(),
   saveTemplate: () => saveTemplate(),
+  saveAsNewTemplate: () => saveTemplate(true),
   deleteTemplate: id => deleteTemplate(id),
   insertTmplToken: tok => insertTmplToken(tok),
+  newPrintDraft: kind => newPrintDraft(kind),
+  printZplInput: () => printZplInput(),
+  clickZplPreview: () => clickZplPreview(),
+  clickTmplPreview: () => clickTmplPreview(),
+  openTemplateSettings: () => openTemplateSettings(),
+  saveAndUse: mode => saveAndUse(mode),
+  dzNameChanged: () => dzNameChanged(),
+  dzOpen: () => dzOpen(),
+  dzClose: () => dzClose(),
+  dzPreset: key => dzPreset(key),
+  dzOwn: (key, v) => dzOwn(key, v),
+  dzAdd: type => dzAdd(type),
+  dzUndo: () => dzUndo(),
+  dzSet: (key, v) => dzSet(key, v),
+  dzInsertToken: tok => dzInsertToken(tok),
+  dzDelete: () => dzDelete(),
+  dzSample: (tok, v) => dzSample(tok, v),
   toggleAuditZpl: i => toggleAuditZpl(i),
   deletePasteColumn: ci => deletePasteColumn(ci),
   setPasteMapping: (ci, v) => setPasteMapping(ci, v),
@@ -4372,6 +5555,47 @@ const UI_HANDLERS = {
   fn(...args.map(a => a && typeof a === 'object' && '$' in a
     ? (a.$ === 'value' ? el.value : a.$ === 'checked' ? el.checked : a.$ === 'event' ? ev : undefined) : a));
 }));
+
+/**
+ * One app dialog at a time; further ones wait. Resolves with true / false, or
+ * for a text question with the text or null. Esc, Cancel and a click outside
+ * mean no. Do not use the browser's own confirm, alert and prompt functions.
+ */
+let dialogQueue = Promise.resolve();
+function openDialog({ title, text, ok = 'OK', cancel = 'Cancel', danger = false, input = null }) {
+  const run = () => new Promise(resolve => {
+    const el = id => document.getElementById(id);
+    const dlg = el('app-dialog'), okBtn = el('app-dialog-ok'), cancelBtn = el('app-dialog-cancel'), field = el('app-dialog-input');
+    el('app-dialog-title').textContent = title;
+    el('app-dialog-text').textContent = text;
+    okBtn.textContent = ok;
+    okBtn.classList.toggle('dlg-danger', danger);
+    cancelBtn.textContent = cancel || '';
+    cancelBtn.classList.toggle('hidden', !cancel);
+    field.classList.toggle('hidden', input === null);
+    field.value = input ?? '';
+    dlg.returnValue = '';
+    cancelBtn.onclick = () => dlg.close('');
+    dlg.oncancel = () => { dlg.returnValue = ''; };
+    dlg.onmousedown = ev => {
+      if (ev.target !== dlg) return;
+      const b = dlg.getBoundingClientRect();
+      if (ev.clientX < b.left || ev.clientX > b.right || ev.clientY < b.top || ev.clientY > b.bottom) dlg.close('');
+    };
+    dlg.onclose = () => { const yes = dlg.returnValue === 'ok'; resolve(input === null ? yes : yes ? field.value : null); };
+    dlg.showModal();
+    if (input !== null) { field.focus(); field.select(); } else (danger ? cancelBtn : okBtn).focus();   // a stray Enter never deletes
+  });
+  const result = dialogQueue.then(run);
+  dialogQueue = result.catch(() => {});
+  return result;
+}
+/** Yes/no question. @returns {Promise<boolean>} */
+function askConfirm(text, { title = 'Please confirm', ok = 'OK', danger = false } = {}) { return openDialog({ title, text, ok, danger }); }
+/** Question with a text field. @returns {Promise<string|null>} null = cancelled */
+function askText(text, value = '', { title = 'Enter a value', ok = 'OK' } = {}) { return openDialog({ title, text, ok, input: value }); }
+/** Message with one button. */
+function showMessage(text, { title = 'Please note' } = {}) { return openDialog({ title, text, cancel: '' }); }
 
 /** Return an em-dash placeholder for empty table cells. */
 function dash() { return '<span class="text-gray-300">·</span>'; }
@@ -4416,6 +5640,8 @@ const MODE_LABELS = { single: 'Single Print', batch: 'Batch Print', bundle: 'Lab
  */
 function setPrintMode(mode) {
   if (!PRINT_MODES.includes(mode)) mode = 'batch';
+  if (mode !== printMode && tmplEditId && !leaveTemplateEditor(() => setPrintMode(mode))) return;
+  if (mode !== printMode) document.getElementById('single-copies').value = '';
   // A print range belongs to the labels of one mode.
   if (mode !== printMode) { const r = document.getElementById('print-range'); if (r) r.value = ''; }
   printMode = mode;
@@ -4440,6 +5666,7 @@ function applyModeSelection() {
   let tmplId = sel.template;
   if (printMode === 'bundle') { const b = currentBundle(); if (b?.templateId) tmplId = b.templateId; }
   if (ts) {
+    if (ts.value === 'new') { save(); return; }
     if (tmplId && S.templates.some(t => t.id === tmplId)) ts.value = tmplId;
     else if (ts.value) sel.template = ts.value;          // mode had no template yet: adopt the current one
     S.lastUsed.template = ts.value;
@@ -4461,10 +5688,13 @@ function syncModeUI() {
   });
   ['single', 'batch', 'bundle', 'paste'].forEach(m => document.getElementById(`${m}-pane`).classList.toggle('hidden', printMode !== m));
   document.getElementById('bundle-info-wrap').classList.toggle('hidden', printMode !== 'bundle');
+  document.getElementById('print-new-design').classList.toggle('hidden', printMode !== 'single');
+  document.getElementById('print-design').classList.toggle('hidden', printMode !== 'single');
   // Section numbers: 1 = template and printer, then the mode's own sections, preview last.
-  const own = printMode === 'bundle' ? 3 : printMode === 'paste' ? 2 : 1;
+  const own = printMode === 'bundle' ? 3 : printMode === 'paste' || printMode === 'single' ? 2 : 1;
   document.getElementById('step-preview').textContent = own + 2;
   applyModeSelection();
+  syncPrintDesigner();
   if (printMode === 'single') renderFieldRows('single');
   if (printMode === 'bundle') renderBundlePane();
   if (printMode === 'batch') renderBatchPane();
@@ -4843,10 +6073,10 @@ function renderPasteOriginal() {
  * box then appears for new data. The column assignments stay remembered
  * (S.lastUsed.pasteMemory), so a similar sheet is mapped the same way again.
  */
-function clearPaste() {
+async function clearPaste() {
   const P = pasteState();
   const n = P.rows.length;
-  if (n && !confirm(`Remove the ${n} row${n !== 1 ? 's' : ''}${P.source ? ` from ${P.source}` : ''}? Then paste or upload new data. Your column assignments are remembered.`)) return;
+  if (n && !await askConfirm(`Remove the ${n} row${n !== 1 ? 's' : ''}${P.source ? ` from ${P.source}` : ''}? Then paste or upload new data. Your column assignments are remembered.`, { title: 'Remove data?', ok: 'Remove', danger: true })) return;
   S.lastUsed.paste = null;
   pasteWorkbook = null;
   pasteOriginalOpen = false;
@@ -4915,9 +6145,9 @@ function deletePasteRow(ri) {
 }
 
 /** Append an empty, unmapped column (e.g. to add a field that was not in the sheet). */
-function addPasteColumn() {
+async function addPasteColumn() {
   const P = pasteState();
-  const name = prompt('Name of the new column:', `Column ${colLetter(P.headers.length)}`);
+  const name = await askText('Name of the new column:', `Column ${colLetter(P.headers.length)}`, { title: 'Add column', ok: 'Add' });
   if (name === null) return;
   P.headers.push(name.trim() || `Column ${colLetter(P.headers.length)}`);
   P.mapping.push(null);
@@ -4933,9 +6163,9 @@ function addPasteColumn() {
  * Start with an empty table: one column per placeholder of the selected
  * template (or three generic columns) and the requested number of rows.
  */
-function createManualTable() {
+async function createManualTable() {
   const tokens = templateTokens(currentTemplate());
-  const n = prompt('How many rows (labels) do you want to enter?', '5');
+  const n = await askText('How many rows (labels) do you want to enter?', '5', { title: 'Enter manually', ok: 'Create table' });
   if (n === null) return;
   const rows = Math.max(1, Math.min(2000, parseInt(n) || 1));
   const P = pasteState();
@@ -4956,9 +6186,9 @@ function createManualTable() {
 }
 
 /** Remove one column. */
-function deletePasteColumn(ci) {
+async function deletePasteColumn(ci) {
   const P = pasteState();
-  if (!confirm(`Remove column "${P.headers[ci]}"?`)) return;
+  if (!await askConfirm(`Remove column "${P.headers[ci]}"?`, { title: 'Remove column?', ok: 'Remove', danger: true })) return;
   P.headers.splice(ci, 1);
   P.mapping.splice(ci, 1);
   P.rows.forEach(r => r.splice(ci, 1));
@@ -5076,10 +6306,10 @@ function renderPasteMappingSummary() {
 
 /**
  * Add a column mapped to the given placeholder (or copies) and fill it with
- * one value for all rows, asked via prompt. Dates default to today, copies to 1.
+ * one value for all rows, asked in a dialog. Dates default to today, copies to 1.
  * @param {string} target - ZPL token or PASTE_COPIES_KEY
  */
-function addPasteColumnFor(target) {
+async function addPasteColumnFor(target) {
   const P = pasteState();
   if (!P.headers.length) return;
   const isCopies = target === PASTE_COPIES_KEY;
@@ -5089,7 +6319,7 @@ function addPasteColumnFor(target) {
   const hint = isCopies ? 'Number of labels per row:'
              : isDateToken(target) ? `\${${target}} for all rows (YYYY-MM-DD, printed as ${dateFmt()}):`
              : `\${${target}} for all rows:`;
-  const value = prompt(hint, suggestion);
+  const value = await askText(hint, suggestion, { title: 'Add column', ok: 'Add' });
   if (value === null) return;
   // A placeholder can be fed by one column only: release it if it is mapped elsewhere.
   P.mapping = P.mapping.map(m => m === target ? null : m);

@@ -49,14 +49,14 @@ const clickHandler = (name, nth = 0) => {
 (async () => {
   localStorage.removeItem('lr_state');
   await loadApp(); await wait(300);
-  w.confirm = () => true;
+  w.askConfirm = async () => true;
 
   // ── Paste to Print: manual column choices survive reload and new data ──────
   w.setPrintMode('paste'); await wait(100);
   await paste('Reagenz\tGefaess\tNotiz\nA\t1\tx\nB\t2\ty');
   check('unknown headers are not auto-mapped', mapping() === '[null,null,null]', mapping());
   w.setPasteMapping(0, 'NAME'); w.setPasteMapping(1, 'BATCH_ID'); w.setPasteMapping(2, '');
-  await loadApp(); await wait(300); w.confirm = () => true;
+  await loadApp(); await wait(300); w.askConfirm = async () => true;
   check('manual mapping survives a reload', mapping() === '["NAME","BATCH_ID",null]', mapping());
   const sels = [...w.document.querySelectorAll('[data-onchange="setPasteMapping"]')].map(s => s.value);
   check('the dropdowns show it after the reload', sels.slice(0, 2).join() === 'NAME,BATCH_ID', sels.join());
@@ -95,7 +95,7 @@ const clickHandler = (name, nth = 0) => {
   await paste('C\t3');
   check('the next paste uses it (no header row)', S().lastUsed.paste.hasHeader === false && S().lastUsed.paste.rows.length === 1);
   check('and the assignments by position', mapping() === '["NAME","BATCH_ID"]', mapping());
-  await loadApp(); await wait(300); w.confirm = () => true;
+  await loadApp(); await wait(300); w.askConfirm = async () => true;
   w.setPrintMode('paste'); await wait(100);
   check('the checkbox state survives a reload', $('paste-has-header').checked === false);
   w.clearPaste(); await wait(50);
@@ -113,7 +113,7 @@ const clickHandler = (name, nth = 0) => {
   $('paste-has-header').checked = false; w.onPasteHeaderToggle(false); await wait(50);
   check('switching the header row does not change the original', /No header row/.test($('paste-original').innerText) && /Buffer A/.test($('paste-original').innerText));
   $('paste-has-header').checked = true; w.onPasteHeaderToggle(true);
-  await loadApp(); await wait(300); w.confirm = () => true; w.setPrintMode('paste'); await wait(100);
+  await loadApp(); await wait(300); w.askConfirm = async () => true; w.setPrintMode('paste'); await wait(100);
   check('the original survives a reload', !$('paste-original-btn').classList.contains('hidden') && S().lastUsed.paste.raw.length === 3);
   const files2 = []; w.HTMLAnchorElement.prototype.click = function () { files2.push(this); };
   const blobs2 = new Map(); const ou = w.URL.createObjectURL; w.URL.createObjectURL = b => { const u = ou.call(w.URL, b); blobs2.set(u, b); return u; };
@@ -122,7 +122,7 @@ const clickHandler = (name, nth = 0) => {
   check('the original is not written to exports', exps.every(e => !('raw' in (e.lastUsed.paste || {}))));
   w.clearPaste(); await wait(50);
   check('Remove data removes the original too', $('paste-original-btn').classList.contains('hidden') && $('paste-original').classList.contains('hidden'));
-  w.prompt = () => '2'; w.createManualTable(); await wait(50);
+  w.askText = async () => '2'; w.createManualTable(); await wait(50);
   check('manual entry has no original to show', $('paste-original-btn').classList.contains('hidden'));
   w.clearPaste(); await wait(50);
 
@@ -183,10 +183,10 @@ const clickHandler = (name, nth = 0) => {
   // Unsaved changes: switching to another template asks first.
   clickHandler('toggleEditTemplate', 0); await wait(80);
   $('m-tname2').value = 'Unsaved'; $('m-tname2').dispatchEvent(new w.Event('input', { bubbles: true }));
-  let asked = 0; w.confirm = () => { asked++; return false; };
+  let asked = 0; w.askConfirm = async () => { asked++; return false; };
   clickHandler('toggleEditTemplate', 1); await wait(80);
   check('unsaved changes are not dropped silently', asked === 1 && $('m-tname2').value === 'Unsaved');
-  w.confirm = () => true;
+  w.askConfirm = async () => true;
   clickHandler('cancelEditTemplate'); await wait(80);
   w.openAddTemplate(); await wait(100);
   clickHandler('saveTemplate'); await wait(50);

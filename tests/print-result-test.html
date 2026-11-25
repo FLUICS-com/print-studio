@@ -56,7 +56,7 @@ function loadApp() {
     if (/labelary/.test(String(url))) { requests.push('LABELARY'); return new w.Response('', { status: 200 }); }
     return new w.Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } });
   };
-  w.confirm = () => true;
+  w.askConfirm = async () => true;
 
   // A test template and printer; labels come from a stub so the test controls them.
   S.settings.apiKey = 'test-key';
@@ -109,10 +109,10 @@ function loadApp() {
     ? new w.Response(JSON.stringify({ connected: true, printerState: { connected: true, printerStatus: '01' } }), { status: 200, headers: { 'Content-Type': 'application/json' } })
     : realFetch(url, opts);
   let asked = '';
-  w.confirm = m => { asked = m; return false; };
+  w.askConfirm = async m => { asked = m; return false; };
   await w.printLabels();
   check('printer problem before printing is asked about', requests.length === 0 && /labels are empty or jammed/.test(asked) && /Not printed/.test(status()), status());
-  w.confirm = () => true;
+  w.askConfirm = async () => true;
 
   // 2f. No answer: the app stops waiting and says so (timeout shortened for the test).
   w.eval('PRINT_TIMEOUT_MS = 300');
@@ -168,11 +168,11 @@ function loadApp() {
   let threw = false;
   try { await w.labelaryFetch('https://api.labelary.com/x', '^XA^XZ'); } catch { threw = true; }
   check('nothing is sent to Labelary while off', threw && !requests.includes('LABELARY'));
-  w.confirm = () => false;
-  w.enableLabelary();
+  w.askConfirm = async () => false;
+  await w.enableLabelary();
   check('declining the question keeps it off', w.labelaryOn() === false);
-  w.confirm = () => true;
-  w.enableLabelary();
+  w.askConfirm = async () => true;
+  await w.enableLabelary();
   check('agreeing switches it on', w.labelaryOn() === true);
 
   // 9. Exports: shared without key and audit log, backup with both.

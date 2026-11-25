@@ -1,4 +1,4 @@
-# FLUICS PRINT Studio v1.2: User Manual
+# FLUICS PRINT Studio v1.3: User Manual
 
 PRINT Studio is a single HTML file that runs in your browser and sends label print jobs to FLUICS online label printers. Nothing is installed and no data is stored on a server: the configuration, the pasted data and the audit log live in your browser's local storage. Only the finished label content is sent to the printer through the FLUICS PRINT cloud API.
 
@@ -8,7 +8,7 @@ PRINT Studio is open source under the MIT License. Source code and the latest ve
 
 - A current browser (Chrome, Edge, Firefox or Safari). The app runs from the file itself (double-click `PRINTStudio.html`), from any web server, and on phones or tablets via a server URL (see Installation below).
 - A FLUICS PRINT API key. Request one at connect@fluics.com.
-- Internet access for printing, for the visual label preview (Labelary) and for the first load of the Excel reader. Copy and paste and CSV files also work offline.
+- Internet access for printing, for the visual label preview (Labelary) and for the first load of the Excel reader and of the barcode drawing in the label designer. Copy and paste and CSV files also work offline.
 
 ## 2. Installation and first start
 
@@ -21,7 +21,7 @@ The app is one file with no server-side code. Three ways to run it:
 First start:
 
 1. Open the HTML file. The book icon (top right) opens this manual, the gear icon opens the settings; the version number is in the footer.
-2. As long as no API key is stored, the printer field under 1 shows a link *No printer connected* that opens the right place: the gear icon, section **Connect printer**. Enter your API key there; it is masked, the eye icon shows it. The field is deliberately not a browser password field, so no browser offers to save the key as a password. Leave the base URL unchanged unless FLUICS told you otherwise. Click **Save and load printers**. Under **General**, pick your date format and whether label sizes are shown in inches or millimetres.
+2. As long as no API key is stored, the printer field under 1 shows a link *No printer connected* that opens the right place: the gear icon, section **Connect printer** (the first one, highlighted while no key is stored). Enter your API key there; it is masked, the eye icon shows it. The field is deliberately not a browser password field, so no browser offers to save the key as a password. Leave the base URL unchanged unless FLUICS told you otherwise. Click **Save and load printers**. Under **General**, pick your date format and whether label sizes are shown in inches or millimetres.
 3. Check the **Label templates** section. A fresh installation already contains the FLUICS demo setup: the templates *Type 1 Labels (text only)*, *Type 1 Labels (qr code)*, *Type 4 Labels (qr code)* and *Type 12 Labels (circle+rectangle)*, plus two example bundles. Matching labels and ribbons are at https://fluics.com/labels.
 4. If you received a configuration file (`fluics-print-studio-config-….json`), import it in the **General** section → Import. Templates, placeholders, bundles and printer names are restored; a shared file contains no API key, so enter your own under **Connect printer**.
 
@@ -36,11 +36,44 @@ The four cards below the header (Single Print, Paste to Print, Batch Print, Labe
 | **Batch Print** | You print several labels with the same content, optionally with a running number | Label (1…N) |
 | **Label Bundles** | A fixed set of labels that share their content and differ in one field | Label type × its count |
 
-Click a card to switch. A fresh installation opens in Batch Print; afterwards the last used mode is remembered.
+Click a card to switch. A fresh installation opens in Single Print with a label design you can change or print right away; afterwards the last used mode is remembered.
 
 ### 3.1 Single Print
 
-The quickest way to one label: 1 Label template and printer, 2 Label content (one row per placeholder of the template, text or date), 3 Preview, then **Print label** or **Save as PDF**. Values are remembered.
+Single Print is the place to **design a label and print it**, and to prepare label templates for the other modes. The screen is numbered: 1 Label template and printer, 2 Label design, 3 Label content, 4 Preview.
+
+What the design (or the ZPL code) shows is what gets printed, also before it is saved. The audit log then adds *(unsaved)* to the template name.
+
+#### Section 1: Choose or start a label
+
+Choose a saved template, or start a new label: **+ New label design** opens an empty label on the canvas, **Paste ZPL** an empty code field for ZPL from elsewhere. Choosing another template, another print mode or Settings, Label templates asks first when there are unsaved changes. Reloading the page drops them without asking.
+
+#### Section 2: Label design
+
+The switch next to the template name changes between **Design** and **ZPL code**.
+
+**Design** shows the label on a canvas:
+
+- **Label size**: the FLUICS label sizes with the label types they fit, or **Own size…** with width, height and margin. The GHS labels (Type 6 and 7) are upright, because they run through the printer with the narrow side across; rotate elements to read along the long side.
+- **+ Text, + QR code, + DataMatrix, + Code 128** add an element. Drag it to move it, drag the blue corner to resize it, use the arrow keys to move it by 1 dot (with Shift by 10), Delete to remove it, **Undo** (Ctrl+Z / Cmd+Z) to step back.
+- The fields next to the canvas change the selected element: content, position, size, rotation (not for QR codes). Click a placeholder such as `${NAME}` to insert it; anything you write as `${…}` becomes a placeholder. 300 dots are 25.4 mm.
+- **Text blocks**: with a **Block width** above 0, text wraps inside the block, at spaces, in long words after a hyphen and otherwise anywhere, with the chosen alignment. PRINT Studio breaks the lines itself when printing. If the text needs more than **Max. lines**, the label is refused with a message instead of being cut off.
+- The **dotted line** is the recommended margin. Elements may cross it, a warning then says that parts near the edge can be cut off. A QR code can start 10 dots below the label edge at the highest.
+- The canvas is drawn in your browser, nothing is sent out. The printer's own font differs slightly: check every design with a test print, and that all codes scan. A DataMatrix code cannot contain a backtick character.
+
+Designs are made for 300 dpi printers.
+
+**ZPL code** shows the code the design produces, or the code of a template written in ZPL. You can change it and print it as shown. Next to the code the label is rendered by Labelary, if the rendered preview is switched on (see 3.5). Set width, height and resolution below it; they are used for the preview.
+
+- The designer can only open its own designs. After changing the code by hand, going back to **Design** asks whether to start with an empty design, and saving keeps the code without a design.
+- **Pasted ZPL** may contain `^XA` and `^XZ`, they are removed. Code with more than one label is refused. Commands that can change the printer or its stored data (for example `^JUS`) are named in a warning. Every `${NAME}` becomes a row under Label content. The printer settings (`^MT`, `^MD`, `^PR`, `^PW`, `^LH`) are printed as pasted: add those of your other templates if they are missing.
+- In pasted ZPL, a word that is wider than its `^FB` text block is split by the printer, which can print an extra character there (seen as ð on a FLUICS printer). Designed labels avoid this.
+
+**Saving.** A new label has **Save template**. A saved one has **Save changes** (overwrites it) and **Save as new template** (keeps it and adds a new one). Saved templates are available in all print modes; **Save and use in** Paste to Print, Batch Print or Label Bundles saves and takes you there with the label selected (Label Bundles starts a new bundle). **Discard changes** goes back to the saved state. Copying, sorting and deleting templates is done under Settings, Label templates.
+
+#### Section 3: Label content
+
+One row per placeholder of the label, text or date; the values appear on the canvas while you type and are remembered. **Identical labels** prints the label 1 to 10 times (`^PQ`); for more, use Batch Print. Leave it empty to use the number in the ZPL code, if there is one, otherwise 1. The field empties itself when you change the label or the print mode.
 
 ### 3.2 Paste to Print
 
@@ -82,7 +115,7 @@ The pasted table and the mapping are kept when you close the browser, so you can
 
 ### 3.3 Batch Print
 
-Batch Print prints **Number of labels** copies of one label (1 Label template and printer, 2 Label content, 3 Preview). The content is defined row by row: the selected template has exactly one row per placeholder, the placeholder name on the left, its value on the right. Each row has a kind:
+Batch Print prints **Number of labels** copies of one label (1 Label template and printer, 2 Label content, 3 Preview). The number is the first field of section 2. The content below it is defined row by row: the selected template has exactly one row per placeholder, the placeholder name on the left, its value on the right. Each row has a kind:
 
 - **Text**: one value for every label. The camera icon scans a barcode or QR code into the field (needs HTTPS and camera permission).
 - **Date**: the box shows the date exactly as it will be printed, in the format set under Settings, General (the **change date format** link leads there). With **Today** ticked (default) the date follows the current date automatically, also when you print tomorrow. Untick it and click the box or the calendar icon to pick a fixed date.
@@ -147,25 +180,25 @@ Values are printed exactly as entered: characters that ZPL would treat as comman
 
 The gear icon opens the settings panel with five sections.
 
-### 4.1 General
+### 4.1 Connect printer
+
+API key and base URL of the FLUICS PRINT API; **Save and load printers** stores them and fetches the printer list. Below, give each printer a friendly name (for example Laboratory, Office). The name is used in the printer dropdown and in the audit log. While no API key is stored, the section is highlighted and the gear icon opens it directly.
+
+### 4.2 General
 
 - **Date format**: how every date placeholder is printed, in all print modes (for example 2026-04-21, 21.04.2026, 21Apr26).
 - **Label dimensions**: whether label width and height are shown and entered in inches or millimetres in the template editor. Templates are stored in inches internally, switching the unit converts the display.
-- **Preview**: switches the Labelary rendering on or off (see 3.5). It is off by default and asks once before label content is sent to labelary.com.
+- **Preview**: switches the Labelary rendering on or off everywhere (see 3.5): section 4, the ZPL code view of Single Print and the label templates. It is off by default and asks once before label content is sent to labelary.com.
 - **Reset**: **Reset app to factory defaults** removes everything stored in this browser (settings, API key, templates, bundles, entered values, audit log) and starts again with the demo setup. Export first if you want to keep anything. The same effect: delete the site's data in the browser settings (iPhone: Settings, Safari, Advanced, Website Data; Android Chrome: site settings, Clear and reset).
 - **Configuration file**: **Export** downloads the setup (templates, placeholders, bundles, printer names, settings) as a JSON file to share with colleagues or FLUICS support; it contains **no API key, no audit log and no pasted data** (the column assignments of Paste to Print are included). **Private backup** downloads the same plus the API key, the audit log with the printed label content and the pasted table, to move to another computer; its file name starts with `fluics-print-studio-PRIVATE-backup`, keep it to yourself. **Import** restores either file; a file without API key, audit log or pasted table keeps the ones already in this browser, and ids that are not plain letters, digits, `-` or `_` make the import stop. The selected printer is not part of the file: printers are loaded live from the API whenever the app is used. Rows for placeholders that exist in none of your templates, and rows that still have their default value, are dropped automatically; the `variables` block only names the placeholders with a role (date, counter) and a few legacy names. Use **Export** to share the setup or send it to FLUICS support, **Private backup** to move it to another computer. The file name contains the app version and the local date and time down to the second (`fluics-print-studio-config-v11-2026-10-13_14-05-33.json`), so repeated exports never overwrite each other. Importing a private backup replaces everything in the browser, including the audit log, so make a backup of the current state first if you want to keep it. The app asks before importing and refuses files that are not a PRINT Studio configuration; if an import fails, the previous configuration is kept.
-
-### 4.2 Connect printer
-
-API key and base URL of the FLUICS PRINT API; **Save and load printers** stores them and fetches the printer list. Below, give each printer a friendly name (for example Laboratory, Office). The name is used in the printer dropdown and in the audit log.
 
 ### 4.3 Label templates
 
 **Edit ZPL with care.** The template is sent to the printer as is. Keep the printer settings in the template (`^MT`, `^MD`, `^PR`, `^PW`, `^MU`: media type, darkness, speed, width, units) as delivered with your printer setup; changing them can spoil labels or misalign the printer. Check every change in the preview. Usage is under your own responsibility. If you need a new or adapted template, write to support@fluics.com or order one at https://fluics.com/product/custom-template/. Labels and ribbons for the FLUICS printers: https://fluics.com/labels.
 
-A template is the ZPL code of one label plus its size (width, height, printer resolution). To learn ZPL, the Learning ZPL box at the top of the Label templates section and the template editor link to Labelary's [introduction with examples](https://labelary.com/zpl.html), the [Labelary online viewer](https://labelary.com/viewer.html) to try code, and Zebra's [ZPL programming guide](https://docs.zebra.com/us/en/printers/software/zpl-pg.html) with the complete command reference. Write `${NAME}` where a value should be printed. Below the ZPL editor all placeholders are listed: the ones used in this template first, then the ones used in your other templates; **click a placeholder to insert it at the cursor**. Two names have a built-in role, shown as a small hint on the chip: the date placeholder (*date picker*) opens as a date row and the counter placeholder (*counter*) as a running number. Every placeholder of a saved template is offered in the dropdowns of Single Print, Batch Print, Label Bundles and Paste to Print. The ↑ ↓ buttons on each template card change the order of the templates, which is the order of the template dropdowns.  Do not include `^XA` and `^XZ`, the API adds them. Every template card in the overview shows a rendered image of the template (placeholders printed as `${…}`).
+A template is the ZPL code of one label plus its size (width, height, printer resolution); templates made in the designer also keep their design and open on the canvas (see 3.1). To learn ZPL, the Learning ZPL box at the top of the Label templates section and the template editor link to Labelary's [introduction with examples](https://labelary.com/zpl.html), the [Labelary online viewer](https://labelary.com/viewer.html) to try code, and Zebra's [ZPL programming guide](https://docs.zebra.com/us/en/printers/software/zpl-pg.html) with the complete command reference. Write `${NAME}` where a value should be printed. Below the ZPL editor all placeholders are listed: the ones used in this template first, then the ones used in your other templates; **click a placeholder to insert it at the cursor**. Two names have a built-in role, shown as a small hint on the chip: the date placeholder (*date picker*) opens as a date row and the counter placeholder (*counter*) as a running number. Every placeholder of a saved template is offered in the dropdowns of Single Print, Batch Print, Label Bundles and Paste to Print. The ↑ ↓ buttons on each template card change the order of the templates, which is the order of the template dropdowns.  Do not include `^XA` and `^XZ`, the API adds them. Every template card in the overview shows a rendered image of the template (placeholders printed as `${…}`); while the rendered preview is off, click the box to switch it on.
 
-**Edit** opens the editor right inside the template's card (name, size, resolution, ZPL, placeholders, preview); **Save template** stores it, **Cancel** or **Close editor** closes it. One template is edited at a time: if you open another one or leave the section with unsaved changes, the app asks first. **Clone** makes a copy right below the original, named *… (copy)*, and opens it in the editor: rename it and change what differs, the original stays untouched. **+ Add Template** opens an empty editor at the top of the list. The editor renders the layout once when it opens and again when you leave a field you changed or click the preview box; while you type, the image is only dimmed.
+**Edit** opens the editor right inside the template's card (name, size, resolution, design or ZPL code, placeholders, preview); **Save template** stores it, **Cancel** or **Close editor** closes it. One template is edited at a time: if you open another one or leave the section with unsaved changes, the app asks first. **Clone** makes a copy right below the original, named *… (copy)*, and opens it in the editor: rename it and change what differs, the original stays untouched. **+ Add Template** opens an empty editor at the top of the list. The editor renders the layout once when it opens and again when you leave a field you changed or click the preview box; while you type, the image is only dimmed.
 
 ### 4.4 Notes
 
@@ -182,6 +215,17 @@ The audit log and the pasted data are stored in the browser's local storage for 
 ## 6. Versions and updates
 
 Releases are published in the GitHub repository [FLUICS-com/print-studio](https://github.com/FLUICS-com/print-studio), each as a tag (`v1.0`, `v1.1`, …) with the app (`PRINTStudio.html`), this manual and an example configuration. The version is shown in the footer and is written into every exported configuration (`appVersion`) and into every audit entry. Newer versions read configurations exported from older versions; the settings are converted automatically on import. To update: export your configuration in the old version, open the new file, import the configuration. If both files are opened from the same folder in the same browser, they share the stored settings, so the new version picks them up without an import.
+
+**Version 1.3** (November 2026):
+
+- **Label designer** in Single Print: text, text blocks, QR code, DataMatrix and Code 128 on a canvas, FLUICS label sizes and own sizes. What the canvas shows is printed, also before saving.
+- **ZPL code view** with a rendered preview next to the code, and **Paste ZPL** to print or save any label code.
+- **Save as new template**, and **Save and use in** Paste to Print, Batch Print or Label Bundles.
+- **Identical labels** in Single Print: 1 to 10 copies (`^PQ`). Labels without placeholders can be printed there, too.
+- New factory label templates (after **Reset** or on a fresh install): all four are designs now. The Type 1 QR code template prints *Name* and *Date* and encodes `${barcode}`. Long text in the circle of Type 12 is refused instead of cut off. Your own saved templates are not changed by the update.
+- **Fixed**: the QR code of the old factory template *Type 1 Labels (qr code)* left out the first three characters of the name. If you still use a saved copy, replace `^FD${NAME}` with `^FDLA,${NAME}` in its line with `^BQN`.
+- Questions and messages appear in the app instead of browser pop-ups.
+- Label templates show the preview boxes also while the rendered preview is off; Connect printer comes first in the settings.
 
 **Version 1.2** (October 2026):
 
@@ -230,6 +274,9 @@ Releases are published in the GitHub repository [FLUICS-com/print-studio](https:
 - **Numbers or dates look different than in Excel**: Excel cell formatting is not transferred. Dates are read as real dates and printed in the configured date format; formatted numbers (for example 1.000,5) are read as plain numbers.
 - **Excel file does not load**: the Excel reader is loaded from the internet on first use. Without connection, save the sheet as CSV or paste the cells instead.
 - **No image in the preview**: the rendered preview is off (the default; click the image field to switch it on), the internet connection is blocked, or Labelary's rate limit was reached (the preview then says so; wait a moment and click the label image again). Label sizes entered in millimetres are converted to inches for Labelary automatically.
+- **Barcodes on the design canvas are grey boxes**: the barcode drawing is loaded from the internet on first use. Printing does not need it.
+- **A designed label is not printed, "needs … lines"**: the text is too long for its text block. Raise Max. lines, widen the block or use a smaller font.
+- **Pasted ZPL prints too light or in the wrong place**: the printer settings (`^MD`, `^PW`, `^LH` …) are missing in the code. Copy them from a template that prints well.
 - **Camera icon does nothing**: barcode scanning needs HTTPS (or localhost) and camera permission.
 - **Configuration disappeared**: the browser's site data was cleared, or the file was opened from a different location. Import your last export.
 
